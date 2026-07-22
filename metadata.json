@@ -1,0 +1,12 @@
+{
+  "name": "স্মার্ট হাজিরা",
+  "description": "স্মার্ট হাজিরা ব্যবস্থাপনা অ্যাপ।",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
