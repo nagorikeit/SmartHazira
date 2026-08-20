@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+@layer base {
+  /* Ensure all inputs, selects, and textareas have clearly visible high-contrast text */
+  input, select, textarea {
+    color: #0f172a !important; /* Slate 900 */
+    background-color: #ffffff;
+  }
+  
+  input::placeholder, textarea::placeholder {
+    color: #94a3b8 !important; /* Slate 400 */
+  }
+
+  .dark input, .dark select, .dark textarea {
+    color: #f8fafc !important; /* Slate 50 */
+    background-color: #1e293b; /* Slate 800 */
+  }
+
+  .dark input::placeholder, .dark textarea::placeholder {
+    color: #64748b !important; /* Slate 500 */
+  }
+}

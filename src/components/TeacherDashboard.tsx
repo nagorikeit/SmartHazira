@@ -1,8 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Student, ClassSubject, AttendanceRecord, AttendanceStatus } from '../types';
 import { exportAttendanceCSV, saveAttendanceRecord } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { Camera, UserPlus, Download, Search, Calendar, CheckCircle2, Clock, XCircle, Check, Sparkles, Filter, ChevronDown, CheckCheck, MapPin, MessageSquare, QrCode, Lock, Fingerprint } from 'lucide-react';
+import { 
+  Camera, 
+  UserPlus, 
+  Download, 
+  Search, 
+  Calendar, 
+  CheckCircle2, 
+  Clock, 
+  XCircle, 
+  Check, 
+  Sparkles, 
+  Filter, 
+  ChevronDown, 
+  CheckCheck, 
+  MapPin, 
+  MessageSquare, 
+  QrCode, 
+  Lock, 
+  Fingerprint,
+  SlidersHorizontal,
+  Layers,
+  ChevronRight
+} from 'lucide-react';
 
 interface TeacherDashboardProps {
   classes: ClassSubject[];
@@ -44,6 +66,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Present' | 'Late' | 'Absent'>('All');
+  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState<boolean>(false);
+  const toolsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target as Node)) {
+        setIsToolsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
   const classStudents = students.filter(s => s.classId === selectedClassId);
@@ -156,104 +191,158 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
           </div>
 
-          {/* Primary Action Buttons */}
+          {/* Primary Action Buttons & Consolidated Feature Menu */}
           <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
             
-            {/* AI Face Camera Button */}
+            {/* 1. AI Face Camera Button */}
             <button
               onClick={onOpenFaceScanner}
-              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs rounded-2xl shadow-md shadow-emerald-600/20 hover:from-emerald-500 hover:to-teal-500 transition-all flex items-center space-x-2"
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs rounded-2xl shadow-md shadow-emerald-600/20 hover:from-emerald-500 hover:to-teal-500 transition-all flex items-center space-x-2 cursor-pointer"
             >
               <Camera className="w-4 h-4" />
               <span>AI ফেস স্ক্যান</span>
             </button>
 
-            {/* Fingerprint Scanner Button */}
-            {onOpenFingerprintScanner && (
-              <button
-                onClick={onOpenFingerprintScanner}
-                className="px-4 py-2.5 bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-600 hover:to-emerald-600 text-white font-bold text-xs rounded-2xl shadow-md shadow-teal-700/20 transition-all flex items-center space-x-2"
-                title="ফিঙ্গারপ্রিন্ট ডিভাইসে হাজিরা"
-              >
-                <Fingerprint className="w-4 h-4 text-emerald-300 animate-pulse" />
-                <span>ফিঙ্গারপ্রিন্ট কানেক্ট</span>
-              </button>
-            )}
-
-            {/* Add Member Button */}
+            {/* 2. Add Member Button */}
             <button
               onClick={onOpenRegisterModal}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition-all flex items-center space-x-2 shadow-xs"
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition-all flex items-center space-x-2 shadow-xs cursor-pointer"
             >
               <UserPlus className="w-4 h-4 text-emerald-400" />
               <span>{terminology.registerActionText}</span>
             </button>
 
-            {/* Mark All Present Shortcut */}
+            {/* 3. Mark All Present Quick Action */}
             <button
               onClick={handleMarkAllPresent}
-              className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-2xl border border-emerald-200 transition-all flex items-center space-x-1.5"
+              className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-2xl border border-emerald-200 transition-all flex items-center space-x-1.5 cursor-pointer"
               title="এক ক্লিকে সকলকে উপস্থিত করুন"
             >
               <CheckCheck className="w-4 h-4 text-emerald-600" />
               <span className="hidden sm:inline">সবাই উপস্থিত</span>
             </button>
 
-            {/* GPS Selfie Geofence Button */}
-            {onOpenGeofenceModal && (
+            {/* 4. Consolidated Feature Tools Menu Dropdown */}
+            <div className="relative" ref={toolsDropdownRef}>
               <button
-                onClick={onOpenGeofenceModal}
-                className="px-3.5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs rounded-2xl shadow-sm transition-all flex items-center space-x-1.5"
-                title="GPS লোকেশন ও সেলফি হাজিরা"
+                onClick={() => setIsToolsDropdownOpen(!isToolsDropdownOpen)}
+                className={`px-3.5 py-2.5 rounded-2xl font-bold text-xs border transition-all flex items-center space-x-1.5 cursor-pointer ${
+                  isToolsDropdownOpen
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/80'
+                }`}
+                title="আরও ফিচার ও টুলস মেনু"
               >
-                <MapPin className="w-4 h-4" />
-                <span className="hidden sm:inline">GPS সেলফি</span>
+                <SlidersHorizontal className="w-4 h-4 text-emerald-500" />
+                <span>টুলস ও মেনু</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isToolsDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-            )}
 
-            {/* SMS / WhatsApp Notification Button */}
-            {onOpenSmsModal && (
-              <button
-                onClick={onOpenSmsModal}
-                className="px-3 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-2xl border border-emerald-300 transition-all flex items-center space-x-1.5"
-                title="WhatsApp / SMS সতর্কবার্তা"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span className="hidden md:inline">SMS / মেসেজ</span>
-              </button>
-            )}
+              {/* Tools Dropdown Popover Menu */}
+              {isToolsDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-3xl shadow-2xl border border-slate-200 p-2.5 z-30 animate-fadeIn space-y-1">
+                  <div className="px-3 py-2 border-b border-slate-100">
+                    <p className="text-xs font-black text-slate-800">অতিরিক্ত টুলস ও সেটিংস</p>
+                    <p className="text-[11px] text-slate-400">হাজিরা ও কর্মী ম্যানেজমেন্ট টুলস</p>
+                  </div>
 
-            {/* Smart ID Card Button */}
-            {onOpenSmartIdCard && (
-              <button
-                onClick={onOpenSmartIdCard}
-                className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-2xl border border-slate-300 transition-all flex items-center space-x-1.5"
-                title="স্মার্ট আইডি কার্ড তৈরি"
-              >
-                <QrCode className="w-4 h-4 text-slate-700" />
-                <span className="hidden lg:inline">আইডি কার্ড</span>
-              </button>
-            )}
+                  {/* Fingerprint Scanner Option */}
+                  {onOpenFingerprintScanner && (
+                    <button
+                      onClick={() => { onOpenFingerprintScanner(); setIsToolsDropdownOpen(false); }}
+                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-emerald-700"
+                    >
+                      <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
+                        <Fingerprint className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800">বায়োমেট্রিক ফিঙ্গারপ্রিন্ট</p>
+                        <p className="text-[10px] text-slate-400">USB ফিঙ্গারপ্রিন্ট কানেকশন</p>
+                      </div>
+                    </button>
+                  )}
 
-            {/* Audit Log Button */}
-            {onOpenAuditLog && (
-              <button
-                onClick={onOpenAuditLog}
-                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-2xl border border-slate-200/80 transition-all"
-                title="সিকিউরিটি অডিট লগ"
-              >
-                <Lock className="w-4 h-4 text-slate-600" />
-              </button>
-            )}
+                  {/* GPS Selfie Geofence Option */}
+                  {onOpenGeofenceModal && (
+                    <button
+                      onClick={() => { onOpenGeofenceModal(); setIsToolsDropdownOpen(false); }}
+                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-cyan-700"
+                    >
+                      <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800">GPS সেলফি ও লোকেশন</p>
+                        <p className="text-[10px] text-slate-400">জিওফেন্স সেলফ হাজিরা</p>
+                      </div>
+                    </button>
+                  )}
 
-            {/* Export CSV Button */}
-            <button
-              onClick={handleExportCSV}
-              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-2xl border border-slate-200/80 transition-all"
-              title="CSV রিপোর্ট ডাউনলোড"
-            >
-              <Download className="w-4 h-4 text-slate-600" />
-            </button>
+                  {/* SMS / WhatsApp Notification Option */}
+                  {onOpenSmsModal && (
+                    <button
+                      onClick={() => { onOpenSmsModal(); setIsToolsDropdownOpen(false); }}
+                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-emerald-700"
+                    >
+                      <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800">WhatsApp / SMS সতর্কবার্তা</p>
+                        <p className="text-[10px] text-slate-400">অভিভাবক ও স্টাফ নোটিফিকেশন</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Smart ID Card Option */}
+                  {onOpenSmartIdCard && (
+                    <button
+                      onClick={() => { onOpenSmartIdCard(); setIsToolsDropdownOpen(false); }}
+                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-indigo-700"
+                    >
+                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <QrCode className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800">স্মার্ট ডিজিটাল আইডি কার্ড</p>
+                        <p className="text-[10px] text-slate-400">QR কোড সহ আইডি জেনারেটর</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Audit Log Option */}
+                  {onOpenAuditLog && (
+                    <button
+                      onClick={() => { onOpenAuditLog(); setIsToolsDropdownOpen(false); }}
+                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-amber-700"
+                    >
+                      <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800">সিকিউরিটি অডিট ও লগস</p>
+                        <p className="text-[10px] text-slate-400">পরিবর্তন ও লগইন হিস্টোরি</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Export CSV Option */}
+                  <button
+                    onClick={() => { handleExportCSV(); setIsToolsDropdownOpen(false); }}
+                    className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700"
+                  >
+                    <div className="p-2 bg-slate-100 text-slate-700 rounded-lg">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-800">CSV রিপোর্ট ডাউনলোড</p>
+                      <p className="text-[10px] text-slate-400">এক্সেল ফরম্যাটে ডাটা এক্সপোর্ট</p>
+                    </div>
+                  </button>
+
+                </div>
+              )}
+            </div>
 
           </div>
 
@@ -284,14 +373,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         <div className="p-4 border-b border-slate-200/80 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
           
           {/* Date Picker */}
-          <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-2xl border border-slate-200 text-xs shadow-xs">
+          <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-2xl border border-slate-300 text-xs shadow-xs">
             <Calendar className="w-4 h-4 text-emerald-600" />
-            <span className="font-medium text-slate-500">তারিখ:</span>
+            <span className="font-bold text-slate-700">তারিখ:</span>
             <input
               type="date"
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
-              className="font-bold text-slate-800 focus:outline-none bg-transparent cursor-pointer"
+              className="font-bold text-slate-900 focus:outline-none bg-transparent cursor-pointer"
             />
           </div>
 
@@ -303,7 +392,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               placeholder={`${terminology.memberLabel}-এর নাম বা ${terminology.idLabel} দিয়ে খুঁজুন...`}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-2xl text-xs focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="w-full pl-9 pr-3 py-1.5 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-2xl text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
 
@@ -362,8 +451,23 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
-                    কোন {terminology.memberLabel} পাওয়া যায়নি।
+                  <td colSpan={7} className="p-10 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center space-y-3 max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <UserPlus className="w-6 h-6" />
+                      </div>
+                      <p className="font-bold text-slate-700">এই বিভাগে কোনো {terminology.memberLabel} তালিকাভুক্ত নেই</p>
+                      <p className="text-xs text-slate-400">
+                        কোম্পানি অ্যাডমিন হিসেবে আপনার অধীনে নতুন কর্মী বা শিক্ষার্থী যুক্ত করতে নিচের বাটনে ক্লিক করুন।
+                      </p>
+                      <button
+                        onClick={onOpenRegisterModal}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>{terminology.registerActionText}</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (

@@ -37,6 +37,12 @@ import { SmartIdCardModal } from './components/SmartIdCardModal';
 import { AuditLogModal } from './components/AuditLogModal';
 import { FingerprintScannerModal } from './components/FingerprintScannerModal';
 import { AuthRegistrationModal } from './components/AuthRegistrationModal';
+import { MandatoryLoginGate } from './components/MandatoryLoginGate';
+import { NavigationMenu } from './components/NavigationMenu';
+import { CompanyAdminNavbar } from './components/CompanyAdminNavbar';
+import { UserDirectoryView } from './components/UserDirectoryView';
+import { CompanyProfileModal } from './components/CompanyProfileModal';
+import { exportAttendanceCSV } from './utils/storage';
 
 import {
   BarChart3,
@@ -49,12 +55,33 @@ import {
   MapPin,
   MessageSquare,
   QrCode,
-  Lock
+  Lock,
+  Camera,
+  Fingerprint,
+  CheckCircle2,
+  Zap
 } from 'lucide-react';
+
+import {
+  testFirestoreConnection,
+  subscribeToCompanies,
+  saveCompanyToFirestore,
+  subscribeToMembers,
+  saveMemberToFirestore,
+  subscribeToAttendance,
+  saveAttendanceToFirestore,
+  saveAuditLogToFirestore,
+  subscribeToAuth,
+  signInWithGoogle,
+  signOutUser
+} from './lib/firebase';
+import { User } from 'firebase/auth';
 
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('teacher');
   const [orgCategory, setOrgCategory] = useState<OrgCategoryKey>('educational');
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [classes, setClasses] = useState<ClassSubject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -66,9 +93,56 @@ export default function App() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(MOCK_LEAVE_REQUESTS);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>(MOCK_COMPANIES);
+  const [activeCompany, setActiveCompany] = useState<RegisteredCompany | null>(null);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+        setCurrentUser(user);
+        const newLog: AuditLogItem = {
+          id: `log-auth-${Date.now()}`,
+          userRole: currentRole,
+          action: 'Google Authentication Sign In',
+          targetMember: user.displayName || user.email || 'User',
+          timestamp: new Date().toLocaleTimeString('bn-BD'),
+          details: `Google ID: ${user.email} সফলভাবে লগইন করেছেন`,
+          status: 'Success'
+        };
+        setAuditLogs(prev => [newLog, ...prev]);
+        saveAuditLogToFirestore(newLog);
+      }
+    } catch (error) {
+      console.error('Google Sign In failed:', error);
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    try {
+      await signOutUser();
+      setCurrentUser(null);
+      const newLog: AuditLogItem = {
+        id: `log-out-${Date.now()}`,
+        userRole: currentRole,
+        action: 'Google Authentication Sign Out',
+        targetMember: currentUser?.displayName || currentUser?.email || 'User',
+        timestamp: new Date().toLocaleTimeString('bn-BD'),
+        details: `সফলভাবে লগআউট সম্পন্ন হয়েছে`,
+        status: 'Success'
+      };
+      setAuditLogs(prev => [newLog, ...prev]);
+      saveAuditLogToFirestore(newLog);
+    } catch (error) {
+      console.error('Sign Out failed:', error);
+    }
+  };
 
   const handleAddCompany = (newCompany: RegisteredCompany) => {
     setRegisteredCompanies(prev => [newCompany, ...prev]);
+    setActiveCompany(newCompany);
+    saveCompanyToFirestore(newCompany);
+
     const newLog: AuditLogItem = {
       id: `log-cmp-${Date.now()}`,
       userRole: 'Super Admin',
@@ -79,13 +153,22 @@ export default function App() {
       status: 'Success'
     };
     setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
   };
 
   const handleUpdateCompanyStatus = (companyId: string, newStatus: 'Active' | 'Pending' | 'Suspended') => {
-    setRegisteredCompanies(prev => prev.map(c => c.id === companyId ? { ...c, status: newStatus } : c));
+    setRegisteredCompanies(prev => {
+      const updated = prev.map(c => c.id === companyId ? { ...c, status: newStatus } : c);
+      const targetCompany = updated.find(c => c.id === companyId);
+      if (targetCompany) {
+        saveCompanyToFirestore(targetCompany);
+      }
+      return updated;
+    });
   };
 
   const handleSelectCompanyToManage = (company: RegisteredCompany) => {
+    setActiveCompany(company);
     handleSelectOrgCategory(company.category, true);
     setCurrentRole('teacher');
     const newLog: AuditLogItem = {
@@ -98,6 +181,7 @@ export default function App() {
       status: 'Success'
     };
     setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
   };
 
   const handleAddMemberToCompany = (memberData: Partial<Student>, companyId: string) => {
@@ -125,7 +209,16 @@ export default function App() {
     };
 
     setStudents(prev => [newMember, ...prev]);
-    setRegisteredCompanies(prev => prev.map(c => c.id === companyId ? { ...c, totalMembers: c.totalMembers + 1 } : c));
+    saveMemberToFirestore(newMember);
+
+    setRegisteredCompanies(prev => prev.map(c => {
+      if (c.id === companyId) {
+        const updated = { ...c, totalMembers: c.totalMembers + 1 };
+        saveCompanyToFirestore(updated);
+        return updated;
+      }
+      return c;
+    }));
 
     const newLog: AuditLogItem = {
       id: `log-mem-${Date.now()}`,
@@ -137,10 +230,11 @@ export default function App() {
       status: 'Success'
     };
     setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
   };
 
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payroll' | 'somity' | 'leave' | 'academic' | 'ai' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'payroll' | 'somity' | 'leave' | 'academic' | 'ai' | 'analytics'>('dashboard');
 
   // Modals state
   const [isFaceScannerOpen, setIsFaceScannerOpen] = useState<boolean>(false);
@@ -152,10 +246,12 @@ export default function App() {
   const [isAuditLogOpen, setIsAuditLogOpen] = useState<boolean>(false);
   const [isFingerprintScannerOpen, setIsFingerprintScannerOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isNavMenuOpen, setIsNavMenuOpen] = useState<boolean>(false);
+  const [isCompanyProfileModalOpen, setIsCompanyProfileModalOpen] = useState<boolean>(false);
   const [selectedLoggedInStudentId, setSelectedLoggedInStudentId] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
-  // Initialize data and organization category on mount
+  // Initialize data, Firebase subscriptions, and organization category on mount
   useEffect(() => {
     const savedCategory = getStoredOrgCategory();
     setOrgCategory(savedCategory);
@@ -171,6 +267,62 @@ export default function App() {
     if (loadedClasses.length > 0) {
       setSelectedClassId(loadedClasses[0].id);
     }
+
+    // Test Firestore Connection
+    testFirestoreConnection().then(connected => {
+      setIsFirebaseConnected(connected);
+    });
+
+    // Subscribe to real-time Firestore updates
+    const unsubCompanies = subscribeToCompanies((cloudCompanies) => {
+      if (cloudCompanies && cloudCompanies.length > 0) {
+        setRegisteredCompanies(prev => {
+          // Merge unique companies
+          const map = new Map<string, RegisteredCompany>();
+          prev.forEach(c => map.set(c.id, c));
+          cloudCompanies.forEach(c => map.set(c.id, c));
+          return Array.from(map.values());
+        });
+      }
+    });
+
+    const unsubMembers = subscribeToMembers((cloudMembers) => {
+      if (cloudMembers && cloudMembers.length > 0) {
+        setStudents(prev => {
+          const map = new Map<string, Student>();
+          prev.forEach(s => map.set(s.id, s));
+          cloudMembers.forEach(s => map.set(s.id, s));
+          const merged = Array.from(map.values());
+          localStorage.setItem('smart_hazira_students_v1', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+
+    const unsubAttendance = subscribeToAttendance((cloudAttendance) => {
+      if (cloudAttendance && cloudAttendance.length > 0) {
+        setAttendanceRecords(prev => {
+          const map = new Map<string, AttendanceRecord>();
+          prev.forEach(a => map.set(a.id, a));
+          cloudAttendance.forEach(a => map.set(a.id, a));
+          const merged = Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
+          localStorage.setItem('smart_hazira_attendance_v1', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    });
+
+    // Subscribe to Auth state
+    const unsubAuth = subscribeToAuth((user) => {
+      setCurrentUser(user);
+    });
+
+    return () => {
+      unsubCompanies();
+      unsubMembers();
+      unsubAttendance();
+      unsubAuth();
+    };
   }, []);
 
   const orgInfo = ORG_CATEGORIES[orgCategory] || ORG_CATEGORIES.educational;
@@ -218,13 +370,19 @@ export default function App() {
   const handleAttendanceUpdated = (newRecord: AttendanceRecord) => {
     setAttendanceRecords(prev => {
       const index = prev.findIndex(r => r.id === newRecord.id);
+      let updated: AttendanceRecord[];
       if (index >= 0) {
-        const copy = [...prev];
-        copy[index] = newRecord;
-        return copy;
+        updated = [...prev];
+        updated[index] = newRecord;
+      } else {
+        updated = [newRecord, ...prev];
       }
-      return [newRecord, ...prev];
+      localStorage.setItem('smart_hazira_attendance_v1', JSON.stringify(updated));
+      return updated;
     });
+
+    // Save to Firestore Cloud
+    saveAttendanceToFirestore(newRecord);
 
     // Add Audit Log
     const newLog: AuditLogItem = {
@@ -237,10 +395,28 @@ export default function App() {
       status: 'Success'
     };
     setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
   };
 
   const handleStudentAdded = (newStudent: Student) => {
-    setStudents(prev => [...prev, newStudent]);
+    setStudents(prev => {
+      const updated = [...prev, newStudent];
+      localStorage.setItem('smart_hazira_students_v1', JSON.stringify(updated));
+      return updated;
+    });
+    saveMemberToFirestore(newStudent);
+
+    const newLog: AuditLogItem = {
+      id: `log-std-${Date.now()}`,
+      action: 'New Member Registered',
+      userRole: currentRole,
+      targetMember: newStudent.nameBangla,
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: `আইডি: ${newStudent.roll}, বিভাগ: ${newStudent.className}`,
+      status: 'Success'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
   };
 
   // Payroll handlers
@@ -270,19 +446,63 @@ export default function App() {
     setLeaveRequests(prev => [request, ...prev]);
   };
 
+  // If user is not logged in, render the Authentication & Company Registration portal directly as the page
+  if (!currentUser) {
+    return (
+      <MandatoryLoginGate
+        onGoogleSignIn={handleGoogleSignIn}
+        companies={registeredCompanies}
+        students={students}
+        onAddCompany={handleAddCompany}
+        onRoleChange={setCurrentRole}
+        onSelectCompany={handleSelectCompanyToManage}
+        onSelectLoggedInStudent={(std) => setSelectedLoggedInStudentId(std.id)}
+        onSetCurrentUser={setCurrentUser}
+        orgCategory={orgCategory}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950/5 text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white">
       
-      {/* Navbar Header */}
-      <Header
-        currentRole={currentRole}
-        onRoleChange={setCurrentRole}
-        soundEnabled={soundEnabled}
-        onToggleSound={() => setSoundEnabled(prev => !prev)}
-        orgInfo={orgInfo}
-        onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
-        onOpenAuthPortal={() => setIsAuthModalOpen(true)}
-      />
+      {/* Top Main Navigation Bar for Company Admin & Users */}
+      {currentRole === 'teacher' ? (
+        <CompanyAdminNavbar
+          currentRole={currentRole}
+          onRoleChange={setCurrentRole}
+          activeTab={activeTab}
+          onSelectTab={(tab) => setActiveTab(tab as any)}
+          orgInfo={orgInfo}
+          activeCompany={activeCompany || registeredCompanies[0] || null}
+          currentUser={currentUser}
+          isFirebaseConnected={isFirebaseConnected}
+          soundEnabled={soundEnabled}
+          onToggleSound={() => setSoundEnabled(prev => !prev)}
+          onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
+          onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
+          onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+          onOpenProfileModal={() => setIsCompanyProfileModalOpen(true)}
+          onOpenAuditLog={() => setIsAuditLogOpen(true)}
+          onOpenSmsModal={() => setIsSmsModalOpen(true)}
+          onSignOut={handleGoogleSignOut}
+        />
+      ) : (
+        <Header
+          currentRole={currentRole}
+          onRoleChange={setCurrentRole}
+          soundEnabled={soundEnabled}
+          onToggleSound={() => setSoundEnabled(prev => !prev)}
+          orgInfo={orgInfo}
+          onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
+          onOpenAuthPortal={() => setIsAuthModalOpen(true)}
+          onOpenNavigationMenu={() => setIsNavMenuOpen(true)}
+          isFirebaseConnected={isFirebaseConnected}
+          currentUser={currentUser}
+          onGoogleSignIn={handleGoogleSignIn}
+          onGoogleSignOut={handleGoogleSignOut}
+        />
+      )}
 
       {/* Main Content Area */}
       {currentRole === 'kiosk' ? (
@@ -297,109 +517,101 @@ export default function App() {
       ) : (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           
-          {/* Top Summary Stats */}
-          <StatsOverview
-            totalStudents={dailySummary.totalEnrolled}
-            presentCount={dailySummary.present}
-            lateCount={dailySummary.late}
-            absentCount={dailySummary.absent}
-            attendancePercentage={dailySummary.percentage}
-            selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
-            autoSaved={dailySummary.autoSaved}
-            orgInfo={orgInfo}
-          />
+          {/* Quick Biometric & Face Attendance Action Buttons Directly Above Summary */}
+          {activeTab === 'dashboard' && (
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                    <Zap className="w-4 h-4 fill-emerald-500/20" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                      দ্রুত বায়োমেট্রিক ও ফেস হাজিরা গ্রহণ
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      নিচের বাটন থেকে ক্যামেরা বা আঙুলের ছাপ ব্যবহার করে তাৎক্ষণিক উপস্থিতি নিশ্চিত করুন
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full self-start sm:self-auto flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  লাইভ বায়োমেট্রিক সিস্টেম
+                </span>
+              </div>
 
-          {/* Admin Comprehensive System Navigation Tabs */}
-          {currentRole === 'teacher' && (
-            <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto no-scrollbar">
-              
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                  activeTab === 'dashboard'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>উপস্থিতি ড্যাশবোর্ড</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('payroll')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                  activeTab === 'payroll'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                <span>বেতন ও পে-রোল</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('somity')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                  activeTab === 'somity'
-                    ? 'bg-teal-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5 text-teal-400" />
-                <span>সমিতি সঞ্চয় ও ঋণ</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('leave')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                  activeTab === 'leave'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                <span>ছুটি ব্যবস্থাপনা</span>
-              </button>
-
-              {orgCategory === 'educational' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                {/* Button 1: Face Scan (পেজ স্ক্যান / ফেস স্ক্যান) */}
                 <button
-                  onClick={() => setActiveTab('academic')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                    activeTab === 'academic'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                  }`}
+                  onClick={() => setIsFaceScannerOpen(true)}
+                  className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:via-teal-500 hover:to-emerald-600 text-white font-bold transition-all shadow-md hover:shadow-xl hover:shadow-emerald-600/25 flex items-center justify-between text-left cursor-pointer border border-emerald-400/30 transform active:scale-[0.99]"
                 >
-                  <GraduationCap className="w-3.5 h-3.5 text-blue-400" />
-                  <span>ক্লাস রুটিন & শিক্ষা</span>
+                  <div className="flex items-center space-x-3.5 z-10">
+                    <div className="p-3 bg-white/20 group-hover:bg-white/30 backdrop-blur-md rounded-2xl text-white shadow-inner transition-colors">
+                      <Camera className="w-6 h-6 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-base font-black tracking-wide">ফেস স্ক্যান হাজিরা</span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-white/25 text-white">
+                          AI স্ক্যান
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-100 font-medium mt-0.5">
+                        ক্যামেরা দিয়ে স্বয়ংক্রিয় ফেস রিকগনিশন
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white/10 group-hover:bg-white/20 rounded-xl transition z-10 shrink-0 ml-2">
+                    <span className="text-xs font-black">স্ক্যান শুরু &rarr;</span>
+                  </div>
+                  {/* Subtle decorative glow */}
+                  <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
                 </button>
-              )}
 
-              <button
-                onClick={() => setActiveTab('ai')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                  activeTab === 'ai'
-                    ? 'bg-purple-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-300" />
-                <span>AI রিপোর্ট & হেলপার</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shrink-0 ${
-                  activeTab === 'analytics'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>এনালিটিক্স</span>
-              </button>
-
+                {/* Button 2: Fingerprint Scan (ফিঙ্গারপ্রিন্ট) */}
+                <button
+                  onClick={() => setIsFingerprintScannerOpen(true)}
+                  className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-slate-800 to-teal-700 hover:from-indigo-500 hover:via-slate-700 hover:to-teal-600 text-white font-bold transition-all shadow-md hover:shadow-xl hover:shadow-indigo-600/25 flex items-center justify-between text-left cursor-pointer border border-indigo-400/30 transform active:scale-[0.99]"
+                >
+                  <div className="flex items-center space-x-3.5 z-10">
+                    <div className="p-3 bg-white/20 group-hover:bg-white/30 backdrop-blur-md rounded-2xl text-white shadow-inner transition-colors">
+                      <Fingerprint className="w-6 h-6 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-base font-black tracking-wide">ফিঙ্গারপ্রিন্ট হাজিরা</span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-white/25 text-white">
+                          বায়োমেট্রিক
+                        </span>
+                      </div>
+                      <p className="text-xs text-indigo-100 font-medium mt-0.5">
+                        আঙুলের ছাপ ও ডিজিটাল সেন্সরে হাজিরা
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-2 bg-white/10 group-hover:bg-white/20 rounded-xl transition z-10 shrink-0 ml-2">
+                    <span className="text-xs font-black">স্ক্যান শুরু &rarr;</span>
+                  </div>
+                  {/* Subtle decorative glow */}
+                  <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+                </button>
+              </div>
             </div>
+          )}
+
+          {/* Top Summary Stats (Only on Attendance Dashboard tab) */}
+          {activeTab === 'dashboard' && (
+            <StatsOverview
+              totalStudents={dailySummary.totalEnrolled}
+              presentCount={dailySummary.present}
+              lateCount={dailySummary.late}
+              absentCount={dailySummary.absent}
+              attendancePercentage={dailySummary.percentage}
+              selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
+              autoSaved={dailySummary.autoSaved}
+              orgInfo={orgInfo}
+            />
           )}
 
           {/* View Selection */}
@@ -430,6 +642,15 @@ export default function App() {
                 onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
                 onOpenAuditLog={() => setIsAuditLogOpen(true)}
                 onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
+              />
+            ) : activeTab === 'users' ? (
+              <UserDirectoryView
+                students={students}
+                classes={classes}
+                orgInfo={orgInfo}
+                onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+                onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
+                onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
               />
             ) : activeTab === 'payroll' ? (
               <PayrollView
@@ -517,6 +738,8 @@ export default function App() {
         selectedClassId={selectedClassId}
         onStudentAdded={handleStudentAdded}
         orgInfo={orgInfo}
+        companyId={activeCompany?.id || registeredCompanies[0]?.id}
+        companyName={activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
       />
 
       {/* Organization Category Selector Modal */}
@@ -569,11 +792,74 @@ export default function App() {
         companies={registeredCompanies}
         students={students}
         onAddCompany={handleAddCompany}
-        onAddMemberToCompany={handleAddMemberToCompany}
         onRoleChange={setCurrentRole}
         onSelectCompany={handleSelectCompanyToManage}
         onSelectLoggedInStudent={(std) => setSelectedLoggedInStudentId(std.id)}
         orgCategory={orgCategory}
+        currentUser={currentUser}
+        currentRole={currentRole}
+        isCompanyLoggedIn={currentRole === 'teacher'}
+        onSetCurrentUser={setCurrentUser}
+      />
+
+      {/* Central App Navigation & Tools Drawer Menu */}
+      <NavigationMenu
+        isOpen={isNavMenuOpen}
+        onClose={() => setIsNavMenuOpen(false)}
+        currentRole={currentRole}
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab as any)}
+        orgInfo={orgInfo}
+        onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
+        onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
+        onOpenGeofenceModal={() => setIsGeofenceScannerOpen(true)}
+        onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+        onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
+        onOpenSmsModal={() => setIsSmsModalOpen(true)}
+        onOpenAuditLog={() => setIsAuditLogOpen(true)}
+        onExportCSV={() => {
+          exportAttendanceCSV(attendanceRecords, `attendance_report_${new Date().toISOString().split('T')[0]}.csv`);
+        }}
+        onMarkAllPresent={() => {
+          const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
+          const classStudents = students.filter(s => s.classId === selectedClassId);
+          const today = new Date().toISOString().split('T')[0];
+          const nowTime = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+          classStudents.forEach(student => {
+            const record: AttendanceRecord = {
+              id: `att-${Date.now()}-${student.id}`,
+              studentId: student.id,
+              studentName: student.nameBangla,
+              roll: student.roll,
+              classId: selectedClassId,
+              className: currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel,
+              date: today,
+              time: nowTime,
+              status: 'Present',
+              method: 'Manual',
+              notes: 'মেনু থেকে এক ক্লিকে সকল কর্মী উপস্থিত করা হয়েছে'
+            };
+            handleAttendanceUpdated(record);
+          });
+        }}
+        onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
+        onRoleChange={setCurrentRole}
+      />
+
+      {/* Company Admin Profile & Settings Modal */}
+      <CompanyProfileModal
+        isOpen={isCompanyProfileModalOpen}
+        onClose={() => setIsCompanyProfileModalOpen(false)}
+        company={activeCompany || registeredCompanies[0] || null}
+        currentUser={currentUser}
+        orgInfo={orgInfo}
+        totalMembersCount={students.length}
+        onUpdateCompany={(updated) => {
+          handleAddCompany(updated);
+        }}
+        onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
+        onSignOut={handleGoogleSignOut}
+        onOpenAuditLogs={() => setIsAuditLogOpen(true)}
       />
 
     </div>

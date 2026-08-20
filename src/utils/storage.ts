@@ -2,10 +2,10 @@ import { Student, ClassSubject, AttendanceRecord, AttendanceStatus, DailyClassSu
 import { INITIAL_CLASSES, INITIAL_STUDENTS, generateInitialAttendanceRecords } from '../data/mockData';
 
 const KEYS = {
-  CLASSES: 'smart_hazira_classes_v1',
-  STUDENTS: 'smart_hazira_students_v1',
-  ATTENDANCE: 'smart_hazira_attendance_v1',
-  SETTINGS: 'smart_hazira_settings_v1',
+  CLASSES: 'smart_hazira_classes_v2',
+  STUDENTS: 'smart_hazira_students_v2',
+  ATTENDANCE: 'smart_hazira_attendance_v2',
+  SETTINGS: 'smart_hazira_settings_v2',
 };
 
 export const getStoredClasses = (): ClassSubject[] => {

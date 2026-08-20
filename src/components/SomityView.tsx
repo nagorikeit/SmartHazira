@@ -291,48 +291,52 @@ export const SomityView: React.FC<SomityViewProps> = ({
 
             <form onSubmit={handleRecordDeposit} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold mb-1">সমিতি সদস্য নির্বাচন করুন</label>
-                <select
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
-                >
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nameBangla} (বই নং: {s.roll})
-                    </option>
-                  ))}
-                </select>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">সমিতি সদস্য নির্বাচন করুন</label>
+                {students.length > 0 ? (
+                  <select
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id} className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">
+                        {s.nameBangla} (বই নং: {s.roll})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-amber-600">কোনো সদস্য তালিকাভুক্ত নেই।</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold mb-1">সঞ্চয় জমা (৳)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">সঞ্চয় জমা (৳)</label>
                   <input
                     type="number"
                     value={savingsInput}
                     onChange={(e) => setSavingsInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">ঋণ কিস্তি (৳)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">ঋণ কিস্তি (৳)</label>
                   <input
                     type="number"
                     value={loanInstallmentInput}
                     onChange={(e) => setLoanInstallmentInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold mb-1">অনুপস্থিতি জরিমানা (৳)</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">অনুপস্থিতি জরিমানা (৳)</label>
                 <input
                   type="number"
                   value={fineInput}
                   onChange={(e) => setFineInput(Number(e.target.value))}
-                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                  className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
 

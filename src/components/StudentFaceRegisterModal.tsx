@@ -11,6 +11,8 @@ interface StudentFaceRegisterModalProps {
   selectedClassId: string;
   onStudentAdded: (student: Student) => void;
   orgInfo: OrgCategoryInfo;
+  companyId?: string;
+  companyName?: string;
 }
 
 export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> = ({
@@ -20,6 +22,8 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
   selectedClassId,
   onStudentAdded,
   orgInfo,
+  companyId,
+  companyName,
 }) => {
   const { terminology } = orgInfo;
 
@@ -113,6 +117,8 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
       gender,
       guardianPhone,
       email,
+      companyId: companyId || 'default-company',
+      companyName: companyName || 'সংশ্লিষ্ট কোম্পানি',
     });
 
     onStudentAdded(newStudent);
@@ -137,7 +143,12 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
         <div className="bg-slate-900 text-white p-4 px-6 flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center space-x-2">
             <UserPlus className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-base font-bold">{terminology.registerActionText}</h2>
+            <div>
+              <h2 className="text-base font-bold">{terminology.registerActionText}</h2>
+              {companyName && (
+                <p className="text-[10px] text-emerald-400 font-medium">কোম্পানি: {companyName}</p>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
             <X className="w-5 h-5" />
@@ -201,7 +212,7 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
                 placeholder="যেমন: রফিকুল ইসলাম"
                 value={nameBangla}
                 onChange={e => setNameBangla(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                className="w-full p-2.5 bg-slate-50 text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
               />
             </div>
 
@@ -213,7 +224,7 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
                 placeholder="যেমন: ১০১ বা EMP-101"
                 value={roll}
                 onChange={e => setRoll(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full p-2.5 bg-slate-50 text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
               />
             </div>
 
@@ -222,10 +233,10 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
               <select
                 value={classId}
                 onChange={e => setClassId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-semibold"
+                className="w-full p-2.5 bg-slate-50 text-slate-900 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
               >
                 {classes.map(c => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.id} className="text-slate-900">
                     {c.classNameBangla} ({c.subjectName})
                   </option>
                 ))}
@@ -237,11 +248,11 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
               <select
                 value={gender}
                 onChange={e => setGender(e.target.value as any)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-semibold"
+                className="w-full p-2.5 bg-slate-50 text-slate-900 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
               >
-                <option value="Male">পুরুষ (Male)</option>
-                <option value="Female">নারী (Female)</option>
-                <option value="Other">অন্যান্য (Other)</option>
+                <option value="Male" className="text-slate-900">পুরুষ (Male)</option>
+                <option value="Female" className="text-slate-900">নারী (Female)</option>
+                <option value="Other" className="text-slate-900">অন্যান্য (Other)</option>
               </select>
             </div>
 
@@ -252,7 +263,7 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
                 placeholder="017xxxxxxxx"
                 value={guardianPhone}
                 onChange={e => setGuardianPhone(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full p-2.5 bg-slate-50 text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
               />
             </div>
 
@@ -263,7 +274,7 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
                 placeholder="member@org.bd"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+                className="w-full p-2.5 bg-slate-50 text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
               />
             </div>
           </div>

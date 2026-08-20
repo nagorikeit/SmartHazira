@@ -349,87 +349,91 @@ export const PayrollView: React.FC<PayrollViewProps> = ({
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                   {orgInfo.terminology.memberLabel}
                 </label>
-                <select
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
-                >
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nameBangla} ({s.roll})
-                    </option>
-                  ))}
-                </select>
+                {students.length > 0 ? (
+                  <select
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id} className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">
+                        {s.nameBangla} ({s.roll})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-amber-600">কোনো কর্মী/শিক্ষার্থী তালিকাভুক্ত নেই।</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold mb-1">মূল বেতন (৳)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">মূল বেতন (৳)</label>
                   <input
                     type="number"
                     value={baseSalaryInput}
                     onChange={(e) => setBaseSalaryInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">উপস্থিত দিন</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">উপস্থিত দিন</label>
                   <input
                     type="number"
                     value={presentDaysInput}
                     onChange={(e) => setPresentDaysInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold mb-1">ওভারটাইম (ঘণ্টা)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">ওভারটাইম (ঘণ্টা)</label>
                   <input
                     type="number"
                     value={overtimeHoursInput}
                     onChange={(e) => setOvertimeHoursInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">ওভারটাইম রেট (৳/ঘণ্টা)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">ওভারটাইম রেট (৳/ঘণ্টা)</label>
                   <input
                     type="number"
                     value={overtimeRateInput}
                     onChange={(e) => setOvertimeRateInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block font-bold mb-1">বোনাস (+)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">বোনাস (+)</label>
                   <input
                     type="number"
                     value={bonusInput}
                     onChange={(e) => setBonusInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">জরিমানা (-)</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">জরিমানা (-)</label>
                   <input
                     type="number"
                     value={fineInput}
                     onChange={(e) => setFineInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">অগ্রিম কর্তন</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">অগ্রিম কর্তন</label>
                   <input
                     type="number"
                     value={advanceInput}
                     onChange={(e) => setAdvanceInput(Number(e.target.value))}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>

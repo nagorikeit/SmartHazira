@@ -212,63 +212,67 @@ export const LeaveManagementView: React.FC<LeaveManagementViewProps> = ({
 
             <form onSubmit={handleApplyLeave} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold mb-1">{orgInfo.terminology.memberLabel} নির্বাচন করুন</label>
-                <select
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
-                >
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nameBangla} ({s.roll})
-                    </option>
-                  ))}
-                </select>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{orgInfo.terminology.memberLabel} নির্বাচন করুন</label>
+                {students.length > 0 ? (
+                  <select
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id} className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">
+                        {s.nameBangla} ({s.roll})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-amber-600">কোনো কর্মী/শিক্ষার্থী তালিকাভুক্ত নেই।</p>
+                )}
               </div>
 
               <div>
-                <label className="block font-bold mb-1">ছুটির ধরন</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">ছুটির ধরন</label>
                 <select
                   value={leaveType}
                   onChange={(e) => setLeaveType(e.target.value as any)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                  <option value="Casual">নৈমিত্তিক ছুটি (Casual Leave)</option>
-                  <option value="Medical">মেডিকেল ছুটি (Medical Leave)</option>
-                  <option value="Annual">বাৎসরিক ছুটি (Annual Leave)</option>
-                  <option value="Maternity">মাতৃত্বকালীন ছুটি (Maternity Leave)</option>
+                  <option value="Casual" className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">নৈমিত্তিক ছুটি (Casual Leave)</option>
+                  <option value="Medical" className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">মেডিকেল ছুটি (Medical Leave)</option>
+                  <option value="Annual" className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">বাৎসরিক ছুটি (Annual Leave)</option>
+                  <option value="Maternity" className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">মাতৃত্বকালীন ছুটি (Maternity Leave)</option>
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold mb-1">শুরুর তারিখ</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">শুরুর তারিখ</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">শেষের তারিখ</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">শেষের তারিখ</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold mb-1">ছুটির কারণ</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">ছুটির কারণ</label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
                   placeholder="ছুটির স্পষ্ট কারণ লিখুন..."
-                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
 

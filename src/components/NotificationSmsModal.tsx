@@ -80,10 +80,10 @@ export const NotificationSmsModal: React.FC<NotificationSmsModalProps> = ({
             <select
               value={selectedStudentId}
               onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-bold"
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             >
               {students.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s.id} value={s.id} className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">
                   {s.nameBangla} ({s.guardianPhone})
                 </option>
               ))}
