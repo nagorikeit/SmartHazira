@@ -1,5 +1,6 @@
-import { Student, ClassSubject, AttendanceRecord, AttendanceStatus, DailyClassSummary } from '../types';
+import { Student, ClassSubject, AttendanceRecord, AttendanceStatus, AttendanceMethod, DailyClassSummary, AttendancePunch } from '../types';
 import { INITIAL_CLASSES, INITIAL_STUDENTS, generateInitialAttendanceRecords } from '../data/mockData';
+import { calculateStayDuration } from './timeUtils';
 
 const KEYS = {
   CLASSES: 'smart_hazira_classes_v2',
@@ -61,14 +62,86 @@ export const saveAttendanceRecord = (record: Omit<AttendanceRecord, 'id'>): Atte
   // Check if a record already exists for this student on this date
   const existingIndex = records.findIndex(r => r.studentId === record.studentId && r.date === record.date);
   
-  const newRecord: AttendanceRecord = {
-    ...record,
-    id: existingIndex >= 0 ? records[existingIndex].id : id,
-  };
+  let newRecord: AttendanceRecord;
 
   if (existingIndex >= 0) {
-    records[existingIndex] = newRecord;
+    const existing = records[existingIndex];
+    // First scan is considered Entry (প্রবেশ)
+    const entryTime = record.entryTime || existing.entryTime || existing.time;
+    // Subsequent scan is considered Exit (বাহির / প্রস্থান)
+    const exitTime = record.exitTime || record.time;
+
+    const { durationText, totalMinutes } = calculateStayDuration(entryTime, exitTime);
+    const existingPunches = existing.punches && existing.punches.length > 0 
+      ? existing.punches 
+      : [{
+          id: `p-${existing.id}-1`,
+          time: entryTime,
+          type: 'Entry' as const,
+          method: existing.method,
+          confidenceScore: existing.confidenceScore,
+          snapshotUrl: existing.snapshotUrl,
+          notes: 'প্রথম প্রবেশ হাজিরা',
+        }];
+
+    const newPunch: AttendancePunch = {
+      id: `p-${Date.now()}`,
+      time: exitTime,
+      type: 'Exit',
+      method: record.method,
+      confidenceScore: record.confidenceScore,
+      snapshotUrl: record.snapshotUrl,
+      notes: record.notes || 'প্রস্থান / বাহির স্ক্যান',
+    };
+
+    newRecord = {
+      ...existing,
+      ...record,
+      id: existing.id,
+      entryTime: entryTime,
+      exitTime: exitTime,
+      totalDuration: durationText || '০ মিনিট',
+      totalDurationMinutes: totalMinutes,
+      punchCount: (existing.punchCount || existingPunches.length) + 1,
+      punches: [...existingPunches, newPunch],
+      time: exitTime, // show latest activity time
+      status: record.status || existing.status || 'Present',
+      notes: record.notes || `প্রস্থান চিহ্নিত (মোট অবস্থান: ${durationText})`,
+      updatedAt: Date.now(),
+    };
+
+    // Remove from previous index and move to the very top so newest activity is at the top
+    records.splice(existingIndex, 1);
+    records.unshift(newRecord);
   } else {
+    // First attendance scan of the day -> Check-In / প্রবেশ
+    const entryTime = record.entryTime || record.time;
+    const exitTime = record.exitTime;
+    const { durationText, totalMinutes } = calculateStayDuration(entryTime, exitTime);
+
+    const firstPunch: AttendancePunch = {
+      id: `p-${Date.now()}`,
+      time: entryTime,
+      type: 'Entry',
+      method: record.method,
+      confidenceScore: record.confidenceScore,
+      snapshotUrl: record.snapshotUrl,
+      notes: record.notes || 'প্রথম প্রবেশ হাজিরা',
+    };
+
+    newRecord = {
+      ...record,
+      id,
+      entryTime: entryTime,
+      exitTime: exitTime,
+      totalDuration: exitTime ? durationText : 'অবস্থানরত',
+      totalDurationMinutes: totalMinutes,
+      punchCount: 1,
+      punches: [firstPunch],
+      time: entryTime,
+      updatedAt: Date.now(),
+    };
+
     records.unshift(newRecord);
   }
 
@@ -144,6 +217,68 @@ export const getDailySummaryForClass = (classId: string, date: string): DailyCla
     percentage,
     autoSaved: true
   };
+};
+
+export const updateAttendanceHistoryRecord = (
+  student: Student,
+  date: string,
+  updatedData: {
+    entryTime?: string;
+    exitTime?: string;
+    status: AttendanceStatus;
+    method?: AttendanceMethod;
+    notes?: string;
+  }
+): AttendanceRecord => {
+  const records = getStoredAttendance();
+  const existingIndex = records.findIndex(r => r.studentId === student.id && r.date === date);
+
+  const entryTime = updatedData.entryTime || '';
+  const exitTime = updatedData.exitTime || '';
+  const { durationText, totalMinutes } = calculateStayDuration(entryTime, exitTime);
+
+  let newOrUpdatedRecord: AttendanceRecord;
+
+  if (existingIndex >= 0) {
+    const existing = records[existingIndex];
+    newOrUpdatedRecord = {
+      ...existing,
+      entryTime: entryTime,
+      exitTime: exitTime,
+      time: exitTime || entryTime || existing.time || '10:00 AM',
+      totalDuration: exitTime ? durationText : (entryTime ? 'অবস্থানরত' : '০ মিনিট'),
+      totalDurationMinutes: totalMinutes,
+      status: updatedData.status,
+      method: updatedData.method || existing.method || 'Manual',
+      notes: updatedData.notes !== undefined ? updatedData.notes : existing.notes,
+      updatedAt: Date.now(),
+    };
+    records[existingIndex] = newOrUpdatedRecord;
+  } else {
+    newOrUpdatedRecord = {
+      id: `att-${student.id}-${date}-${Date.now()}`,
+      studentId: student.id,
+      studentName: student.nameBangla,
+      roll: student.roll,
+      classId: student.classId,
+      className: student.className,
+      date: date,
+      time: entryTime || exitTime || '10:00 AM',
+      entryTime: entryTime,
+      exitTime: exitTime,
+      totalDuration: exitTime ? durationText : (entryTime ? 'অবস্থানরত' : '০ মিনিট'),
+      totalDurationMinutes: totalMinutes,
+      punchCount: exitTime && entryTime ? 2 : (entryTime || exitTime ? 1 : 0),
+      status: updatedData.status,
+      method: updatedData.method || 'Manual',
+      notes: updatedData.notes || 'অ্যাডমিন কর্তৃক সংরক্ষিত হাজিরা রেকর্ড',
+      updatedAt: Date.now(),
+    };
+    records.unshift(newOrUpdatedRecord);
+  }
+
+  localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(records));
+  return newOrUpdatedRecord;
 };
 
 export const exportAttendanceCSV = (records: AttendanceRecord[], fileName = 'attendance_report.csv') => {

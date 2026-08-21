@@ -23,7 +23,9 @@ import {
   SlidersHorizontal,
   ExternalLink,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Clock,
+  MapPinOff
 } from 'lucide-react';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { UserRole } from '../types';
@@ -41,6 +43,7 @@ interface NavigationMenuProps {
   onOpenSmsModal?: () => void;
   onOpenAuditLog?: () => void;
   onOpenAttendanceLinkModal?: () => void;
+  onOpenScheduleSettings?: () => void;
   onExportCSV?: () => void;
   onMarkAllPresent?: () => void;
   onOpenOrgSelector?: () => void;
@@ -62,6 +65,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onOpenSmsModal,
   onOpenAuditLog,
   onOpenAttendanceLinkModal,
+  onOpenScheduleSettings,
   onExportCSV,
   onMarkAllPresent,
   onOpenOrgSelector,
@@ -336,6 +340,24 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
+
+              {onOpenScheduleSettings && (
+                <button
+                  onClick={() => handleAction(onOpenScheduleSettings)}
+                  className="w-full p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/30 rounded-2xl flex items-center justify-between hover:bg-emerald-100/60 dark:hover:bg-emerald-900/30 transition cursor-pointer text-left shadow-2xs"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-teal-500 text-slate-950 rounded-xl">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xs text-emerald-950 dark:text-emerald-300">সিডিউল, শিফট ও জিও-লোকেশন সেটিংস</p>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400">২৪ ঘণ্টা শিফট, কয়টা থেকে কয়টা ডিউটি ও GPS কোড</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-emerald-500" />
                 </button>
               )}
 

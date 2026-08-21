@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Student, ClassSubject, AttendanceRecord, AttendanceStatus } from '../types';
 import { exportAttendanceCSV, saveAttendanceRecord } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
+import { isFaceActuallyRegistered, isFingerprintActuallyRegistered } from '../utils/faceMatching';
+import { AttendanceDetailsModal } from './AttendanceDetailsModal';
+import { EditAttendanceHistoryModal } from './EditAttendanceHistoryModal';
+import { parseTimeToMinutes } from '../utils/timeUtils';
 import { 
   Camera, 
   UserPlus, 
@@ -23,7 +27,15 @@ import {
   Fingerprint,
   SlidersHorizontal,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Users,
+  Zap,
+  Edit3,
+  LogIn,
+  LogOut,
+  Timer,
+  Info,
+  Eye
 } from 'lucide-react';
 
 interface TeacherDashboardProps {
@@ -41,6 +53,9 @@ interface TeacherDashboardProps {
   onOpenSmartIdCard?: () => void;
   onOpenAuditLog?: () => void;
   onOpenFingerprintScanner?: () => void;
+  onOpenBiometricsModal?: (student: Student) => void;
+  onOpenEditModal?: (student: Student) => void;
+  onNavigateToUsers?: () => void;
 }
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
@@ -58,6 +73,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onOpenSmartIdCard,
   onOpenAuditLog,
   onOpenFingerprintScanner,
+  onOpenBiometricsModal,
+  onOpenEditModal,
+  onNavigateToUsers,
 }) => {
   const { terminology } = orgInfo;
 
@@ -68,6 +86,28 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Present' | 'Late' | 'Absent'>('All');
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState<boolean>(false);
   const toolsDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Attendance Details Modal State
+  const [selectedStudentForDetails, setSelectedStudentForDetails] = useState<Student | null>(null);
+  const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<AttendanceRecord | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState<boolean>(false);
+
+  // Attendance History Edit Modal State
+  const [selectedStudentForHistoryEdit, setSelectedStudentForHistoryEdit] = useState<Student | null>(null);
+  const [selectedRecordForHistoryEdit, setSelectedRecordForHistoryEdit] = useState<AttendanceRecord | null>(null);
+  const [isHistoryEditModalOpen, setIsHistoryEditModalOpen] = useState<boolean>(false);
+
+  const handleOpenDetails = (student: Student, record?: AttendanceRecord) => {
+    setSelectedStudentForDetails(student);
+    setSelectedRecordForDetails(record || null);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleOpenHistoryEdit = (student: Student, record?: AttendanceRecord) => {
+    setSelectedStudentForHistoryEdit(student);
+    setSelectedRecordForHistoryEdit(record || null);
+    setIsHistoryEditModalOpen(true);
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -84,6 +124,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const classStudents = students.filter(s => s.classId === selectedClassId);
 
   // Map students with their attendance record for the selected date
+  // Sort so that the latest entry/punch appears at the very top of the table
   const studentRows = classStudents.map(student => {
     const record = attendanceRecords.find(
       r => r.studentId === student.id && r.date === selectedDate
@@ -93,13 +134,32 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       record,
       status: record ? record.status : ('Absent' as AttendanceStatus),
     };
+  }).sort((a, b) => {
+    // 1. If both have attendance records on selected date: sort by latest timestamp/time in descending order (latest first)
+    if (a.record && b.record) {
+      if (a.record.updatedAt && b.record.updatedAt) {
+        return b.record.updatedAt - a.record.updatedAt;
+      }
+      const timeA = parseTimeToMinutes(a.record.exitTime || a.record.time || a.record.entryTime || '') ?? 0;
+      const timeB = parseTimeToMinutes(b.record.exitTime || b.record.time || b.record.entryTime || '') ?? 0;
+      if (timeB !== timeA) return timeB - timeA;
+    }
+    // 2. An attended member appears before an unattended member
+    if (a.record && !b.record) return -1;
+    if (!a.record && b.record) return 1;
+
+    // 3. Otherwise sort by ID / Roll
+    return (a.student.roll || '').localeCompare(b.student.roll || '', undefined, { numeric: true });
   });
 
-  // Filter rows
+  // Filter rows with resilient name check
   const filteredRows = studentRows.filter(({ student, status }) => {
+    const displayName = student.nameBangla || student.name || student.nameEnglish || student.roll || '';
     const matchesSearch =
-      student.nameBangla.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.roll.includes(searchQuery);
+      displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (student.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (student.nameBangla || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (student.roll || '').includes(searchQuery);
     const matchesStatus = statusFilter === 'All' || status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -108,10 +168,11 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const handleStatusChange = (student: Student, newStatus: AttendanceStatus) => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+    const displayName = student.nameBangla || student.name || student.nameEnglish || 'সদস্য';
 
     const updated = saveAttendanceRecord({
       studentId: student.id,
-      studentName: student.nameBangla,
+      studentName: displayName,
       roll: student.roll,
       classId: selectedClassId,
       className: currentClass ? currentClass.classNameBangla : '',
@@ -132,9 +193,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       const timeStr = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
 
       classStudents.forEach(student => {
+        const displayName = student.nameBangla || student.name || student.nameEnglish || 'সদস্য';
         const updated = saveAttendanceRecord({
           studentId: student.id,
-          studentName: student.nameBangla,
+          studentName: displayName,
           roll: student.roll,
           classId: selectedClassId,
           className: currentClass ? currentClass.classNameBangla : '',
@@ -156,276 +218,69 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      
-      {/* Top Controls & Action Bar */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+    <div className="space-y-4">
+      {/* Unified Table Section */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         
-        {/* Class Selection Tabs & Action Buttons */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Filter and Search Sub-bar */}
+        <div className="p-3 sm:p-3.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           
-          {/* Class / Department Tabs */}
-          <div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-              {terminology.groupLabel} নির্বাচন করুন:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {classes.map(cls => (
-                <button
-                  key={cls.id}
-                  onClick={() => onSelectClass(cls.id)}
-                  className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 ${
-                    selectedClassId === cls.id
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 scale-[1.02]'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/60'
-                  }`}
-                >
-                  <span>{cls.classNameBangla}</span>
-                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                    selectedClassId === cls.id ? 'bg-emerald-700 text-emerald-100' : 'bg-slate-200 text-slate-600'
-                  }`}>
-                    {cls.totalStudents} জন
-                  </span>
-                </button>
-              ))}
+          {/* Left: Date Picker + Search */}
+          <div className="flex items-center gap-2 flex-1 max-w-lg">
+            {/* Date Picker */}
+            <div className="flex items-center space-x-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs shadow-2xs shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="font-bold text-slate-900 dark:text-white focus:outline-none bg-transparent cursor-pointer text-xs"
+              />
+            </div>
+
+            {/* Search Box */}
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+              <input
+                type="text"
+                placeholder={`${terminology.memberLabel}-এর নাম বা আইডি খুঁজুন...`}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-500"
+              />
             </div>
           </div>
 
-          {/* Primary Action Buttons & Consolidated Feature Menu */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            
-            {/* 1. AI Face Camera Button */}
-            <button
-              onClick={onOpenFaceScanner}
-              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs rounded-2xl shadow-md shadow-emerald-600/20 hover:from-emerald-500 hover:to-teal-500 transition-all flex items-center space-x-2 cursor-pointer"
-            >
-              <Camera className="w-4 h-4" />
-              <span>AI ফেস স্ক্যান</span>
-            </button>
-
-            {/* 2. Add Member Button */}
-            <button
-              onClick={onOpenRegisterModal}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-2xl transition-all flex items-center space-x-2 shadow-xs cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4 text-emerald-400" />
-              <span>{terminology.registerActionText}</span>
-            </button>
-
-            {/* 3. Mark All Present Quick Action */}
-            <button
-              onClick={handleMarkAllPresent}
-              className="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-2xl border border-emerald-200 transition-all flex items-center space-x-1.5 cursor-pointer"
-              title="এক ক্লিকে সকলকে উপস্থিত করুন"
-            >
-              <CheckCheck className="w-4 h-4 text-emerald-600" />
-              <span className="hidden sm:inline">সবাই উপস্থিত</span>
-            </button>
-
-            {/* 4. Consolidated Feature Tools Menu Dropdown */}
-            <div className="relative" ref={toolsDropdownRef}>
-              <button
-                onClick={() => setIsToolsDropdownOpen(!isToolsDropdownOpen)}
-                className={`px-3.5 py-2.5 rounded-2xl font-bold text-xs border transition-all flex items-center space-x-1.5 cursor-pointer ${
-                  isToolsDropdownOpen
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-md'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/80'
-                }`}
-                title="আরও ফিচার ও টুলস মেনু"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-emerald-500" />
-                <span>টুলস ও মেনু</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isToolsDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Tools Dropdown Popover Menu */}
-              {isToolsDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-3xl shadow-2xl border border-slate-200 p-2.5 z-30 animate-fadeIn space-y-1">
-                  <div className="px-3 py-2 border-b border-slate-100">
-                    <p className="text-xs font-black text-slate-800">অতিরিক্ত টুলস ও সেটিংস</p>
-                    <p className="text-[11px] text-slate-400">হাজিরা ও কর্মী ম্যানেজমেন্ট টুলস</p>
-                  </div>
-
-                  {/* Fingerprint Scanner Option */}
-                  {onOpenFingerprintScanner && (
-                    <button
-                      onClick={() => { onOpenFingerprintScanner(); setIsToolsDropdownOpen(false); }}
-                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-emerald-700"
-                    >
-                      <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
-                        <Fingerprint className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800">বায়োমেট্রিক ফিঙ্গারপ্রিন্ট</p>
-                        <p className="text-[10px] text-slate-400">USB ফিঙ্গারপ্রিন্ট কানেকশন</p>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* GPS Selfie Geofence Option */}
-                  {onOpenGeofenceModal && (
-                    <button
-                      onClick={() => { onOpenGeofenceModal(); setIsToolsDropdownOpen(false); }}
-                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-cyan-700"
-                    >
-                      <div className="p-2 bg-cyan-50 text-cyan-600 rounded-lg">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800">GPS সেলফি ও লোকেশন</p>
-                        <p className="text-[10px] text-slate-400">জিওফেন্স সেলফ হাজিরা</p>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* SMS / WhatsApp Notification Option */}
-                  {onOpenSmsModal && (
-                    <button
-                      onClick={() => { onOpenSmsModal(); setIsToolsDropdownOpen(false); }}
-                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-emerald-700"
-                    >
-                      <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-                        <MessageSquare className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800">WhatsApp / SMS সতর্কবার্তা</p>
-                        <p className="text-[10px] text-slate-400">অভিভাবক ও স্টাফ নোটিফিকেশন</p>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Smart ID Card Option */}
-                  {onOpenSmartIdCard && (
-                    <button
-                      onClick={() => { onOpenSmartIdCard(); setIsToolsDropdownOpen(false); }}
-                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-indigo-700"
-                    >
-                      <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                        <QrCode className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800">স্মার্ট ডিজিটাল আইডি কার্ড</p>
-                        <p className="text-[10px] text-slate-400">QR কোড সহ আইডি জেনারেটর</p>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Audit Log Option */}
-                  {onOpenAuditLog && (
-                    <button
-                      onClick={() => { onOpenAuditLog(); setIsToolsDropdownOpen(false); }}
-                      className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700 hover:text-amber-700"
-                    >
-                      <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800">সিকিউরিটি অডিট ও লগস</p>
-                        <p className="text-[10px] text-slate-400">পরিবর্তন ও লগইন হিস্টোরি</p>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Export CSV Option */}
-                  <button
-                    onClick={() => { handleExportCSV(); setIsToolsDropdownOpen(false); }}
-                    className="w-full p-2.5 rounded-xl hover:bg-slate-50 text-left flex items-center space-x-2.5 transition cursor-pointer text-slate-700"
-                  >
-                    <div className="p-2 bg-slate-100 text-slate-700 rounded-lg">
-                      <Download className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-800">CSV রিপোর্ট ডাউনলোড</p>
-                      <p className="text-[10px] text-slate-400">এক্সেল ফরম্যাটে ডাটা এক্সপোর্ট</p>
-                    </div>
-                  </button>
-
-                </div>
-              )}
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Info Banner for Selected Department / Class */}
-        {currentClass && (
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
-            <div className="flex items-center space-x-3">
-              <span className="font-semibold text-slate-800">{currentClass.subjectName}</span>
-              <span className="text-slate-400">|</span>
-              <span>দায়িত্বপ্রাপ্ত: <strong className="text-slate-800">{currentClass.teacherName}</strong></span>
-              <span className="text-slate-400 hidden md:inline">|</span>
-              <span className="hidden md:inline">{currentClass.scheduleTime}</span>
-            </div>
-            <div className="text-emerald-700 font-bold bg-emerald-100/60 px-2.5 py-1 rounded-xl">
-              স্থান/কক্ষ: {currentClass.roomNo}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* Filter and Student Table Section */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        
-        {/* Table Header Filter Controls */}
-        <div className="p-4 border-b border-slate-200/80 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          
-          {/* Date Picker */}
-          <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-2xl border border-slate-300 text-xs shadow-xs">
-            <Calendar className="w-4 h-4 text-emerald-600" />
-            <span className="font-bold text-slate-700">তারিখ:</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-              className="font-bold text-slate-900 focus:outline-none bg-transparent cursor-pointer"
-            />
-          </div>
-
-          {/* Search Box */}
-          <div className="relative flex-1 max-w-xs">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder={`${terminology.memberLabel}-এর নাম বা ${terminology.idLabel} দিয়ে খুঁজুন...`}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-white text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-2xl text-xs font-semibold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
-
-          {/* Status Filter Buttons */}
-          <div className="flex items-center bg-slate-200/80 p-1 rounded-2xl text-xs font-medium">
+          {/* Right: Status Filter Tabs */}
+          <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium shrink-0 overflow-x-auto">
             <button
               onClick={() => setStatusFilter('All')}
-              className={`px-3 py-1 rounded-xl transition-all ${
-                statusFilter === 'All' ? 'bg-white font-bold text-slate-900 shadow-xs' : 'text-slate-600'
+              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'All' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
               সকল ({studentRows.length})
             </button>
             <button
               onClick={() => setStatusFilter('Present')}
-              className={`px-3 py-1 rounded-xl transition-all ${
-                statusFilter === 'Present' ? 'bg-emerald-600 font-bold text-white shadow-xs' : 'text-slate-600'
+              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'Present' ? 'bg-emerald-600 font-bold text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
               }`}
             >
               উপস্থিত ({studentRows.filter(r => r.status === 'Present').length})
             </button>
             <button
               onClick={() => setStatusFilter('Late')}
-              className={`px-3 py-1 rounded-xl transition-all ${
-                statusFilter === 'Late' ? 'bg-amber-500 font-bold text-white shadow-xs' : 'text-slate-600'
+              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'Late' ? 'bg-amber-500 font-bold text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-amber-600'
               }`}
             >
               বিলম্ব ({studentRows.filter(r => r.status === 'Late').length})
             </button>
             <button
               onClick={() => setStatusFilter('Absent')}
-              className={`px-3 py-1 rounded-xl transition-all ${
-                statusFilter === 'Absent' ? 'bg-rose-600 font-bold text-white shadow-xs' : 'text-slate-600'
+              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                statusFilter === 'Absent' ? 'bg-rose-600 font-bold text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-rose-600'
               }`}
             >
               অনুপস্থিত ({studentRows.filter(r => r.status === 'Absent').length})
@@ -435,158 +290,196 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
 
         {/* Member List Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full min-w-[760px] text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold">
-                <th className="p-3.5 pl-5">{terminology.memberLabel} ও ছবি</th>
-                <th className="p-3.5">{terminology.idLabel}</th>
-                <th className="p-3.5">{terminology.contactLabel}</th>
-                <th className="p-3.5">ফেস বায়োমেট্রিক</th>
-                <th className="p-3.5">সময় ও নিয়ম</th>
-                <th className="p-3.5">স্ট্যাটাস</th>
-                <th className="p-3.5 text-right pr-5">দ্রুত পরিবর্তন</th>
+              <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold">
+                <th className="p-3 pl-4 whitespace-nowrap min-w-[220px]">প্রোফাইল ফটো ও নাম</th>
+                <th className="p-3 whitespace-nowrap min-w-[120px]">পদবী</th>
+                <th className="p-3 whitespace-nowrap min-w-[130px]">প্রবেশ করার সময়</th>
+                <th className="p-3 whitespace-nowrap min-w-[140px]">বাহির হওয়ার সময়</th>
+                <th className="p-3 text-center whitespace-nowrap min-w-[150px]">স্ট্যাটাস</th>
+                <th className="p-3 text-right pr-4 whitespace-nowrap w-24">এডিট</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-10 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center space-y-3 max-w-sm mx-auto">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <UserPlus className="w-6 h-6" />
+                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                    <div className="flex flex-col items-center justify-center space-y-2.5 max-w-sm mx-auto">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                        <UserPlus className="w-5 h-5" />
                       </div>
-                      <p className="font-bold text-slate-700">এই বিভাগে কোনো {terminology.memberLabel} তালিকাভুক্ত নেই</p>
-                      <p className="text-xs text-slate-400">
-                        কোম্পানি অ্যাডমিন হিসেবে আপনার অধীনে নতুন কর্মী বা শিক্ষার্থী যুক্ত করতে নিচের বাটনে ক্লিক করুন।
-                      </p>
+                      <p className="font-bold text-slate-700 dark:text-slate-200">কোনো {terminology.memberLabel} পাওয়া যায়নি</p>
                       <button
                         onClick={onOpenRegisterModal}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
                       >
-                        <UserPlus className="w-4 h-4" />
+                        <UserPlus className="w-3.5 h-3.5" />
                         <span>{terminology.registerActionText}</span>
                       </button>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filteredRows.map(({ student, record, status }) => (
-                  <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
+                filteredRows.map(({ student, record, status }) => {
+                  const hasFace = isFaceActuallyRegistered(student);
+                  const displayName = student.nameBangla || student.name || student.nameEnglish || (student.roll ? `সদস্য #${student.roll}` : 'সদস্য');
+                  const secondaryName = (student.name && student.name !== displayName) ? student.name : (student.nameEnglish && student.nameEnglish !== displayName ? student.nameEnglish : null);
+
+                  return (
+                  <tr 
+                    key={student.id} 
+                    onClick={() => handleOpenDetails(student, record)}
+                    className="cursor-pointer transition-all duration-150 group hover:bg-emerald-50/40 dark:hover:bg-slate-800/50 hover:shadow-2xs"
+                    title={`ক্লিক করে ${displayName}-এর সকল তথ্য ও বিস্তারিত হাজিরা হিস্টোরি দেখুন`}
+                  >
                     
-                    {/* Member Name & Photo */}
-                    <td className="p-3.5 pl-5">
+                    {/* 1. Profile Photo & Name */}
+                    <td className="p-3 pl-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
-                        <img
-                          src={student.photoUrl}
-                          alt={student.nameBangla}
-                          className="w-9 h-9 rounded-xl object-cover bg-slate-100 border border-slate-200"
-                        />
+                        <div className="w-9 h-9 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 group-hover:border-emerald-500 overflow-hidden shrink-0 flex items-center justify-center font-bold text-emerald-700 dark:text-emerald-400 transition relative shadow-2xs">
+                          {hasFace && (student.faceImage || student.photoUrl) ? (
+                            <img
+                              src={student.faceImage || student.photoUrl}
+                              alt={displayName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            displayName.charAt(0)
+                          )}
+                        </div>
                         <div>
-                          <div className="font-bold text-slate-900">{student.nameBangla}</div>
-                          <div className="text-[11px] text-slate-400 font-mono">{student.name}</div>
+                          <div className="font-bold text-slate-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400 flex items-center space-x-1.5 transition">
+                            <span className="text-xs font-black">{displayName}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate max-w-[160px] flex items-center space-x-1.5 font-mono">
+                            <span>ID: <strong className="text-slate-600 dark:text-slate-300">{student.roll || 'N/A'}</strong></span>
+                            {secondaryName && <span>• {secondaryName}</span>}
+                          </div>
                         </div>
                       </div>
                     </td>
 
-                    {/* ID / Roll */}
-                    <td className="p-3.5 font-bold text-slate-800 font-mono">
-                      {student.roll}
+                    {/* 2. Designation (পদবী) */}
+                    <td className="p-3 whitespace-nowrap">
+                      <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px] border border-slate-200/80 dark:border-slate-700">
+                        {student.designation || student.className || 'সদস্য'}
+                      </span>
                     </td>
 
-                    {/* Contact Phone */}
-                    <td className="p-3.5 text-slate-600 font-mono">
-                      {student.guardianPhone || 'N/A'}
-                    </td>
-
-                    {/* Face Registration Status */}
-                    <td className="p-3.5">
-                      {student.faceRegistered ? (
-                        <span className="inline-flex items-center text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 text-[10px]">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> নিবন্ধিত
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 text-[10px]">
-                          অনলাইন স্ক্যান বাকি
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Time & Method */}
-                    <td className="p-3.5 text-slate-600">
-                      {record ? (
-                        <div>
-                          <span className="font-semibold text-slate-800">{record.time}</span>
-                          <span className="text-[10px] text-slate-400 block">{record.method}</span>
+                    {/* 3. Entry Time (প্রবেশ করার সময়) */}
+                    <td className="p-3 whitespace-nowrap">
+                      {record && (record.entryTime || record.time) ? (
+                        <div className="inline-flex items-center space-x-1 font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs">
+                          <LogIn className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span>{record.entryTime || record.time}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic">এখনো এনট্রি হয়নি</span>
+                        <span className="text-slate-400 dark:text-slate-500 font-mono text-xs">—</span>
                       )}
                     </td>
 
-                    {/* Attendance Status Badge */}
-                    <td className="p-3.5">
-                      {status === 'Present' && (
-                        <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          <Check className="w-3 h-3 mr-1 text-emerald-600" /> উপস্থিত
+                    {/* 4. Exit Time (বাহির হওয়ার সময়) */}
+                    <td className="p-3 whitespace-nowrap">
+                      {record?.exitTime ? (
+                        <div className="inline-flex items-center space-x-1 font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-xs">
+                          <LogOut className="w-3 h-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                          <span>{record.exitTime}</span>
+                        </div>
+                      ) : (status === 'Present' || status === 'Late') && record ? (
+                        <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/60">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span>অবস্থান করছেন</span>
                         </span>
-                      )}
-                      {status === 'Late' && (
-                        <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800 border border-amber-200">
-                          <Clock className="w-3 h-3 mr-1 text-amber-600" /> বিলম্ব (Late)
-                        </span>
-                      )}
-                      {status === 'Absent' && (
-                        <span className="inline-flex items-center font-bold px-2.5 py-1 rounded-xl bg-rose-100 text-rose-800 border border-rose-200">
-                          <XCircle className="w-3 h-3 mr-1 text-rose-600" /> অনুপস্থিত
-                        </span>
+                      ) : (
+                        <span className="text-slate-400 dark:text-slate-500 font-mono text-xs">—</span>
                       )}
                     </td>
 
-                    {/* Quick Action Buttons */}
-                    <td className="p-3.5 text-right pr-5">
-                      <div className="flex items-center justify-end space-x-1">
-                        <button
-                          onClick={() => handleStatusChange(student, 'Present')}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    {/* 5. Status Dropdown (স্ট্যাটাস ড্রপ ডাউন) */}
+                    <td className="p-3 text-center whitespace-nowrap">
+                      <div 
+                        className="inline-block"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <select
+                          value={status}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleStatusChange(student, e.target.value as AttendanceStatus);
+                          }}
+                          className={`px-2.5 py-1 rounded-xl font-bold text-xs border shadow-2xs cursor-pointer transition focus:outline-none ${
                             status === 'Present'
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-slate-100 text-slate-600 hover:bg-emerald-100 hover:text-emerald-700'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700'
+                              : status === 'Late'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700'
+                              : 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700'
                           }`}
+                          title="হাজিরা স্ট্যাটাস পরিবর্তন করুন"
                         >
-                          উপস্থিত
-                        </button>
+                          <option value="Present">✓ উপস্থিত (Present)</option>
+                          <option value="Late">⏱ বিলম্ব (Late)</option>
+                          <option value="Absent">✕ অনুপস্থিত (Absent)</option>
+                        </select>
+                      </div>
+                    </td>
+
+                    {/* 6. Edit Attendance History Button (হিস্টোরি এডিট) */}
+                    <td className="p-3 text-right pr-4 whitespace-nowrap">
+                      <div className="flex items-center justify-end space-x-1.5">
                         <button
-                          onClick={() => handleStatusChange(student, 'Late')}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                            status === 'Late'
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-slate-100 text-slate-600 hover:bg-amber-100 hover:text-amber-700'
-                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenHistoryEdit(student, record);
+                          }}
+                          className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white dark:bg-slate-800 dark:hover:bg-emerald-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all shadow-2xs flex items-center space-x-1 cursor-pointer"
+                          title="এই সদস্যের হাজিরা ও হিস্টোরি এডিট করুন"
                         >
-                          বিলম্ব
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(student, 'Absent')}
-                          className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                            status === 'Absent'
-                              ? 'bg-rose-600 text-white'
-                              : 'bg-slate-100 text-slate-600 hover:bg-rose-100 hover:text-rose-700'
-                          }`}
-                        >
-                          অনুপস্থিত
+                          <Edit3 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:text-white transition-colors" />
+                          <span>এডিট</span>
                         </button>
                       </div>
                     </td>
 
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
       </div>
+
+      {/* Attendance & Stay Duration Breakdown Modal with Full History Table */}
+      <AttendanceDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        student={selectedStudentForDetails}
+        attendanceRecord={selectedRecordForDetails}
+        selectedDate={selectedDate}
+        orgInfo={orgInfo}
+        allAttendanceRecords={attendanceRecords}
+        onAttendanceUpdated={(updated) => {
+          onAttendanceUpdated(updated);
+          setSelectedRecordForDetails(updated);
+        }}
+      />
+
+      {/* Attendance History Edit Modal */}
+      <EditAttendanceHistoryModal
+        isOpen={isHistoryEditModalOpen}
+        onClose={() => setIsHistoryEditModalOpen(false)}
+        student={selectedStudentForHistoryEdit}
+        currentRecord={selectedRecordForHistoryEdit}
+        selectedDate={selectedDate}
+        orgInfo={orgInfo}
+        onAttendanceUpdated={(updated) => {
+          onAttendanceUpdated(updated);
+          setSelectedRecordForHistoryEdit(updated);
+        }}
+      />
 
     </div>
   );

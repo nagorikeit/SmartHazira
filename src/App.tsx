@@ -42,7 +42,12 @@ import { NavigationMenu } from './components/NavigationMenu';
 import { CompanyAdminNavbar } from './components/CompanyAdminNavbar';
 import { UserDirectoryView } from './components/UserDirectoryView';
 import { CompanyProfileModal } from './components/CompanyProfileModal';
-import { exportAttendanceCSV } from './utils/storage';
+import { AttendanceLinkModal } from './components/AttendanceLinkModal';
+import { PublicAttendancePortal } from './components/PublicAttendancePortal';
+import { BiometricManagementModal } from './components/BiometricManagementModal';
+import { EditMemberModal } from './components/EditMemberModal';
+import { FooterNavigation } from './components/FooterNavigation';
+import { exportAttendanceCSV, saveStudents } from './utils/storage';
 
 import {
   BarChart3,
@@ -59,7 +64,8 @@ import {
   Camera,
   Fingerprint,
   CheckCircle2,
-  Zap
+  Zap,
+  UserPlus
 } from 'lucide-react';
 
 import {
@@ -68,6 +74,7 @@ import {
   saveCompanyToFirestore,
   subscribeToMembers,
   saveMemberToFirestore,
+  deleteMemberFromFirestore,
   subscribeToAttendance,
   saveAttendanceToFirestore,
   saveAuditLogToFirestore,
@@ -199,8 +206,8 @@ export default function App() {
       className: defaultClass ? defaultClass.classNameBangla : 'সাধারণ বিভাগ',
       companyId: companyId,
       companyName: company?.nameBangla,
-      photoUrl: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2310b981"/><circle cx="100" cy="80" r="42" fill="%23fce7f3"/><text x="100" y="192" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white">${encodeURIComponent(memberData.nameBangla || 'সদস্য')}</text></svg>`,
-      faceRegistered: true,
+      photoUrl: memberData.photoUrl || memberData.faceImage || `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2310b981"/><circle cx="100" cy="80" r="42" fill="%23fce7f3"/><text x="100" y="192" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white">${encodeURIComponent(memberData.nameBangla || 'সদস্য')}</text></svg>`,
+      faceRegistered: Boolean(memberData.faceImage || (memberData.photoUrl && !memberData.photoUrl.includes('data:image/svg+xml') && !memberData.photoUrl.includes('placeholder'))),
       gender: 'Male',
       guardianPhone: memberData.guardianPhone || '01700000000',
       attendanceStreak: 1,
@@ -248,11 +255,31 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState<boolean>(false);
   const [isCompanyProfileModalOpen, setIsCompanyProfileModalOpen] = useState<boolean>(false);
+  const [isAttendanceLinkModalOpen, setIsAttendanceLinkModalOpen] = useState<boolean>(false);
+  const [isPublicPortalOpen, setIsPublicPortalOpen] = useState<boolean>(false);
+  const [publicPortalGeofence, setPublicPortalGeofence] = useState<boolean>(false);
+  const [isBiometricsModalOpen, setIsBiometricsModalOpen] = useState<boolean>(false);
+  const [selectedStudentForBiometrics, setSelectedStudentForBiometrics] = useState<Student | null>(null);
+  const [isEditMemberModalOpen, setIsEditMemberModalOpen] = useState<boolean>(false);
+  const [selectedStudentForEdit, setSelectedStudentForEdit] = useState<Student | null>(null);
   const [selectedLoggedInStudentId, setSelectedLoggedInStudentId] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   // Initialize data, Firebase subscriptions, and organization category on mount
   useEffect(() => {
+    // Check if opened via Public Attendance Portal Link (?mode=attendance)
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('mode') === 'attendance' || urlParams.get('link') === 'attendance') {
+        setIsPublicPortalOpen(true);
+        if (urlParams.get('geo') === '1') {
+          setPublicPortalGeofence(true);
+        }
+      }
+    } catch {
+      // url fallback
+    }
+
     const savedCategory = getStoredOrgCategory();
     setOrgCategory(savedCategory);
 
@@ -419,6 +446,77 @@ export default function App() {
     saveAuditLogToFirestore(newLog);
   };
 
+  const handleSaveBiometrics = (updatedStudent: Student) => {
+    setStudents(prev => {
+      const updated = prev.map(s => s.id === updatedStudent.id ? updatedStudent : s);
+      saveStudents(updated);
+      return updated;
+    });
+    saveMemberToFirestore(updatedStudent);
+
+    const newLog: AuditLogItem = {
+      id: `log-bio-${Date.now()}`,
+      action: 'Biometrics Profile Updated',
+      userRole: currentRole,
+      targetMember: updatedStudent.nameBangla,
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: `ফেস আইডি: ${updatedStudent.faceRegistered ? 'সংযুক্ত' : 'মুছে ফেলা হয়েছে'}, ফিঙ্গারপ্রিন্ট: ${updatedStudent.fingerprintRegistered ? 'সংযুক্ত' : 'মুছে ফেলা হয়েছে'}`,
+      status: 'Success'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
+  };
+
+  const handleOpenEditModal = (student: Student) => {
+    setSelectedStudentForEdit(student);
+    setIsEditMemberModalOpen(true);
+  };
+
+  const handleSaveEditedMember = (updatedStudent: Student) => {
+    setStudents(prev => {
+      const updated = prev.map(s => s.id === updatedStudent.id ? updatedStudent : s);
+      saveStudents(updated);
+      return updated;
+    });
+    saveMemberToFirestore(updatedStudent);
+
+    const newLog: AuditLogItem = {
+      id: `log-edit-${Date.now()}`,
+      userRole: currentRole === 'super_admin' ? 'Super Admin' : 'Admin',
+      action: 'Member Profile Updated',
+      targetMember: updatedStudent.nameBangla,
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: `রোল: ${updatedStudent.roll}, বিভাগ: ${updatedStudent.className || 'সাধারণ'}, যোগাযোগ: ${updatedStudent.guardianPhone || updatedStudent.parentPhone || 'N/A'}`,
+      status: 'Success'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
+  };
+
+  const handleDeleteMember = (studentId: string) => {
+    const target = students.find(s => s.id === studentId);
+    setStudents(prev => {
+      const updated = prev.filter(s => s.id !== studentId);
+      saveStudents(updated);
+      return updated;
+    });
+    deleteMemberFromFirestore(studentId);
+
+    if (target) {
+      const newLog: AuditLogItem = {
+        id: `log-del-${Date.now()}`,
+        userRole: currentRole === 'super_admin' ? 'Super Admin' : 'Admin',
+        action: 'Member Profile Deleted',
+        targetMember: target.nameBangla,
+        timestamp: new Date().toLocaleTimeString('bn-BD'),
+        details: `সদস্য ${target.nameBangla} (${target.roll}) মুছে ফেলা হয়েছে`,
+        status: 'Success'
+      };
+      setAuditLogs(prev => [newLog, ...prev]);
+      saveAuditLogToFirestore(newLog);
+    }
+  };
+
   // Payroll handlers
   const handleUpdatePayrollStatus = (recordId: string, status: 'Paid' | 'Pending', method?: any) => {
     setPayrollRecords(prev =>
@@ -445,6 +543,29 @@ export default function App() {
   const handleAddLeaveRequest = (request: LeaveRequest) => {
     setLeaveRequests(prev => [request, ...prev]);
   };
+
+  // If opened in Public Self-Service Attendance Portal Mode, render isolated portal without admin credentials
+  if (isPublicPortalOpen) {
+    return (
+      <PublicAttendancePortal
+        classes={classes}
+        students={students}
+        onExitPortal={() => {
+          setIsPublicPortalOpen(false);
+          try {
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch {
+            // fallback
+          }
+        }}
+        onAttendanceUpdated={handleAttendanceUpdated}
+        soundEnabled={soundEnabled}
+        orgInfo={orgInfo}
+        companyName={activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
+        enforceGeofence={publicPortalGeofence}
+      />
+    );
+  }
 
   // If user is not logged in, render the Authentication & Company Registration portal directly as the page
   if (!currentUser) {
@@ -485,6 +606,8 @@ export default function App() {
           onOpenProfileModal={() => setIsCompanyProfileModalOpen(true)}
           onOpenAuditLog={() => setIsAuditLogOpen(true)}
           onOpenSmsModal={() => setIsSmsModalOpen(true)}
+          onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+          onOpenNavigationMenu={() => setIsNavMenuOpen(true)}
           onSignOut={handleGoogleSignOut}
         />
       ) : (
@@ -515,91 +638,8 @@ export default function App() {
           orgInfo={orgInfo}
         />
       ) : (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-28 sm:pb-24 space-y-6">
           
-          {/* Quick Biometric & Face Attendance Action Buttons Directly Above Summary */}
-          {activeTab === 'dashboard' && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-                <div className="flex items-center space-x-2.5">
-                  <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                    <Zap className="w-4 h-4 fill-emerald-500/20" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                      দ্রুত বায়োমেট্রিক ও ফেস হাজিরা গ্রহণ
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      নিচের বাটন থেকে ক্যামেরা বা আঙুলের ছাপ ব্যবহার করে তাৎক্ষণিক উপস্থিতি নিশ্চিত করুন
-                    </p>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full self-start sm:self-auto flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  লাইভ বায়োমেট্রিক সিস্টেম
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                {/* Button 1: Face Scan (পেজ স্ক্যান / ফেস স্ক্যান) */}
-                <button
-                  onClick={() => setIsFaceScannerOpen(true)}
-                  className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:via-teal-500 hover:to-emerald-600 text-white font-bold transition-all shadow-md hover:shadow-xl hover:shadow-emerald-600/25 flex items-center justify-between text-left cursor-pointer border border-emerald-400/30 transform active:scale-[0.99]"
-                >
-                  <div className="flex items-center space-x-3.5 z-10">
-                    <div className="p-3 bg-white/20 group-hover:bg-white/30 backdrop-blur-md rounded-2xl text-white shadow-inner transition-colors">
-                      <Camera className="w-6 h-6 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base font-black tracking-wide">ফেস স্ক্যান হাজিরা</span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-white/25 text-white">
-                          AI স্ক্যান
-                        </span>
-                      </div>
-                      <p className="text-xs text-emerald-100 font-medium mt-0.5">
-                        ক্যামেরা দিয়ে স্বয়ংক্রিয় ফেস রিকগনিশন
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-2 bg-white/10 group-hover:bg-white/20 rounded-xl transition z-10 shrink-0 ml-2">
-                    <span className="text-xs font-black">স্ক্যান শুরু &rarr;</span>
-                  </div>
-                  {/* Subtle decorative glow */}
-                  <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
-                </button>
-
-                {/* Button 2: Fingerprint Scan (ফিঙ্গারপ্রিন্ট) */}
-                <button
-                  onClick={() => setIsFingerprintScannerOpen(true)}
-                  className="group relative overflow-hidden p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-slate-800 to-teal-700 hover:from-indigo-500 hover:via-slate-700 hover:to-teal-600 text-white font-bold transition-all shadow-md hover:shadow-xl hover:shadow-indigo-600/25 flex items-center justify-between text-left cursor-pointer border border-indigo-400/30 transform active:scale-[0.99]"
-                >
-                  <div className="flex items-center space-x-3.5 z-10">
-                    <div className="p-3 bg-white/20 group-hover:bg-white/30 backdrop-blur-md rounded-2xl text-white shadow-inner transition-colors">
-                      <Fingerprint className="w-6 h-6 stroke-[2.5]" />
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base font-black tracking-wide">ফিঙ্গারপ্রিন্ট হাজিরা</span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-white/25 text-white">
-                          বায়োমেট্রিক
-                        </span>
-                      </div>
-                      <p className="text-xs text-indigo-100 font-medium mt-0.5">
-                        আঙুলের ছাপ ও ডিজিটাল সেন্সরে হাজিরা
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-2 bg-white/10 group-hover:bg-white/20 rounded-xl transition z-10 shrink-0 ml-2">
-                    <span className="text-xs font-black">স্ক্যান শুরু &rarr;</span>
-                  </div>
-                  {/* Subtle decorative glow */}
-                  <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Top Summary Stats (Only on Attendance Dashboard tab) */}
           {activeTab === 'dashboard' && (
             <StatsOverview
@@ -642,6 +682,12 @@ export default function App() {
                 onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
                 onOpenAuditLog={() => setIsAuditLogOpen(true)}
                 onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
+                onOpenBiometricsModal={(student) => {
+                  setSelectedStudentForBiometrics(student);
+                  setIsBiometricsModalOpen(true);
+                }}
+                onOpenEditModal={handleOpenEditModal}
+                onNavigateToUsers={() => setActiveTab('users')}
               />
             ) : activeTab === 'users' ? (
               <UserDirectoryView
@@ -651,6 +697,12 @@ export default function App() {
                 onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
                 onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
                 onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
+                onOpenBiometricsModal={(student) => {
+                  setSelectedStudentForBiometrics(student);
+                  setIsBiometricsModalOpen(true);
+                }}
+                onEditStudent={handleOpenEditModal}
+                onDeleteStudent={handleDeleteMember}
               />
             ) : activeTab === 'payroll' ? (
               <PayrollView
@@ -711,7 +763,7 @@ export default function App() {
       <FaceScannerModal
         isOpen={isFaceScannerOpen}
         onClose={() => setIsFaceScannerOpen(false)}
-        students={students.filter(s => s.classId === selectedClassId)}
+        students={students}
         selectedClassId={selectedClassId}
         selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
         onAttendanceUpdated={handleAttendanceUpdated}
@@ -764,6 +816,7 @@ export default function App() {
         onClose={() => setIsSmartIdCardOpen(false)}
         students={students}
         orgInfo={orgInfo}
+        companyName={activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
       />
 
       {/* Security Audit Log Modal */}
@@ -817,6 +870,7 @@ export default function App() {
         onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
         onOpenSmsModal={() => setIsSmsModalOpen(true)}
         onOpenAuditLog={() => setIsAuditLogOpen(true)}
+        onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
         onExportCSV={() => {
           exportAttendanceCSV(attendanceRecords, `attendance_report_${new Date().toISOString().split('T')[0]}.csv`);
         }}
@@ -861,6 +915,61 @@ export default function App() {
         onSignOut={handleGoogleSignOut}
         onOpenAuditLogs={() => setIsAuditLogOpen(true)}
       />
+
+      {/* Public Attendance Link & Printable QR Code Generator Modal */}
+      <AttendanceLinkModal
+        isOpen={isAttendanceLinkModalOpen}
+        onClose={() => setIsAttendanceLinkModalOpen(false)}
+        company={activeCompany || registeredCompanies[0] || null}
+        orgInfo={orgInfo}
+        onOpenPublicPortal={() => setIsPublicPortalOpen(true)}
+      />
+
+      {/* Employee / Member Biometric Management Modal (Add, Update, Remove Face & Fingerprint) */}
+      <BiometricManagementModal
+        isOpen={isBiometricsModalOpen}
+        onClose={() => {
+          setIsBiometricsModalOpen(false);
+          setSelectedStudentForBiometrics(null);
+        }}
+        student={selectedStudentForBiometrics}
+        onSaveBiometrics={handleSaveBiometrics}
+        orgInfo={orgInfo}
+      />
+
+      {/* Member Profile Edit Modal */}
+      <EditMemberModal
+        isOpen={isEditMemberModalOpen}
+        onClose={() => {
+          setIsEditMemberModalOpen(false);
+          setSelectedStudentForEdit(null);
+        }}
+        student={selectedStudentForEdit}
+        classes={classes}
+        orgInfo={orgInfo}
+        onSave={handleSaveEditedMember}
+        onDelete={handleDeleteMember}
+        onOpenBiometricsModal={(student) => {
+          setIsEditMemberModalOpen(false);
+          setSelectedStudentForBiometrics(student);
+          setIsBiometricsModalOpen(true);
+        }}
+      />
+
+      {/* Sticky Bottom Footer Navigation Bar with Icon System */}
+      {currentRole !== 'kiosk' && (
+        <FooterNavigation
+          currentRole={currentRole}
+          activeTab={activeTab}
+          onSelectTab={(tab) => setActiveTab(tab as any)}
+          orgInfo={orgInfo}
+          onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
+          onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
+          onOpenNavMenu={() => setIsNavMenuOpen(true)}
+          onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
+          onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+        />
+      )}
 
     </div>
   );

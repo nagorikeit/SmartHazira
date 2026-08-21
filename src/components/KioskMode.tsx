@@ -1,9 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Student, ClassSubject, AttendanceRecord } from '../types';
-import { identifyStudentFromCamera } from '../utils/faceMatching';
-import { saveAttendanceRecord } from '../utils/storage';
+import { identifyStudentFromCamera, speakBengaliAttendance, speakBengaliAlreadyAttended } from '../utils/faceMatching';
+import { saveAttendanceRecord, getStoredAttendance } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { Camera, CheckCircle2, RefreshCw, X, Sparkles, Volume2, ShieldCheck, UserCheck } from 'lucide-react';
+import { Camera, CheckCircle2, RefreshCw, X, Sparkles, Volume2, ShieldCheck, UserCheck, Info } from 'lucide-react';
 
 interface KioskModeProps {
   classes: ClassSubject[];
@@ -13,6 +13,8 @@ interface KioskModeProps {
   soundEnabled: boolean;
   orgInfo: OrgCategoryInfo;
 }
+
+const ATTENDANCE_COOLDOWN_MS = 5 * 60 * 1000;
 
 export const KioskMode: React.FC<KioskModeProps> = ({
   classes,
@@ -27,14 +29,34 @@ export const KioskMode: React.FC<KioskModeProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Map to track the timestamp of recent attendance per student
+  const recentAttendanceMap = useRef<{ [studentId: string]: { timestamp: number; timeStr: string } }>({});
+  const lastAlertTimestampMap = useRef<{ [studentId: string]: number }>({});
+
   const [selectedClassId, setSelectedClassId] = useState<string>(classes[0]?.id || '');
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [lastDetectedStudent, setLastDetectedStudent] = useState<Student | null>(null);
+  const [isAlreadyAttended, setIsAlreadyAttended] = useState<boolean>(false);
   const [detectionTimestamp, setDetectionTimestamp] = useState<string>('');
   const [detectedCountToday, setDetectedCountToday] = useState<number>(0);
 
   const classStudents = students.filter(s => s.classId === selectedClassId);
+
+  // Prepopulate recentAttendanceMap from stored records of today on mount
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const records = getStoredAttendance();
+    const todayRecords = records.filter(r => r.date === todayStr);
+    todayRecords.forEach(r => {
+      if (!recentAttendanceMap.current[r.studentId]) {
+        recentAttendanceMap.current[r.studentId] = {
+          timestamp: Date.now() - 60000,
+          timeStr: r.time || '',
+        };
+      }
+    });
+  }, []);
 
   // Play audio feedback
   const playSuccessSound = () => {
@@ -85,7 +107,7 @@ export const KioskMode: React.FC<KioskModeProps> = ({
     };
   }, []);
 
-  // Continuous Auto Scan Loop every 3 seconds
+  // Continuous Auto Scan Loop every 3.2 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
       if (!videoRef.current || !canvasRef.current || isScanning || classStudents.length === 0) return;
@@ -104,32 +126,60 @@ export const KioskMode: React.FC<KioskModeProps> = ({
         const scanResult = await identifyStudentFromCamera(classStudents, snapshot);
 
         if (scanResult.matchedStudent) {
-          setLastDetectedStudent(scanResult.matchedStudent);
+          const matched = scanResult.matchedStudent;
           const now = new Date();
+          const currentTimeMs = Date.now();
           const timeStr = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
           const dateStr = now.toISOString().split('T')[0];
 
-          setDetectionTimestamp(timeStr);
-          setDetectedCountToday(prev => prev + 1);
-          playSuccessSound();
+          // Check 5-Minute Cooldown
+          const lastRecordInfo = recentAttendanceMap.current[matched.id];
+          const hasRecent = lastRecordInfo && (currentTimeMs - lastRecordInfo.timestamp < ATTENDANCE_COOLDOWN_MS);
 
-          const record = saveAttendanceRecord({
-            studentId: scanResult.matchedStudent.id,
-            studentName: scanResult.matchedStudent.nameBangla,
-            roll: scanResult.matchedStudent.roll,
-            classId: selectedClassId,
-            className: classes.find(c => c.id === selectedClassId)?.classNameBangla || '',
-            date: dateStr,
-            time: timeStr,
-            status: scanResult.status,
-            method: 'Self Kiosk',
-            confidenceScore: scanResult.confidence,
-            snapshotUrl: snapshot,
-            verifiedByAI: true,
-            notes: `প্রবেশদ্বারে অটোমেটিক ফেস কিওস্ক চিহ্নিতকরণ`,
-          });
+          if (hasRecent) {
+            // Already attended within 5 minutes
+            const lastAlert = lastAlertTimestampMap.current[matched.id] || 0;
+            if (currentTimeMs - lastAlert > 8000) {
+              speakBengaliAlreadyAttended(matched.nameBangla);
+              lastAlertTimestampMap.current[matched.id] = currentTimeMs;
+            }
 
-          onAttendanceUpdated(record);
+            setLastDetectedStudent(matched);
+            setIsAlreadyAttended(true);
+            setDetectionTimestamp(lastRecordInfo.timeStr || timeStr);
+          } else {
+            // Fresh attendance recording
+            recentAttendanceMap.current[matched.id] = {
+              timestamp: currentTimeMs,
+              timeStr: timeStr,
+            };
+            lastAlertTimestampMap.current[matched.id] = currentTimeMs;
+
+            setLastDetectedStudent(matched);
+            setIsAlreadyAttended(false);
+            setDetectionTimestamp(timeStr);
+            setDetectedCountToday(prev => prev + 1);
+            playSuccessSound();
+            speakBengaliAttendance(matched.nameBangla);
+
+            const record = saveAttendanceRecord({
+              studentId: matched.id,
+              studentName: matched.nameBangla,
+              roll: matched.roll,
+              classId: selectedClassId,
+              className: classes.find(c => c.id === selectedClassId)?.classNameBangla || '',
+              date: dateStr,
+              time: timeStr,
+              status: scanResult.status,
+              method: 'Self Kiosk',
+              confidenceScore: scanResult.confidence,
+              snapshotUrl: snapshot,
+              verifiedByAI: true,
+              notes: `প্রবেশদ্বারে অটোমেটিক ফেস কিওস্ক চিহ্নিতকরণ`,
+            });
+
+            onAttendanceUpdated(record);
+          }
         }
       }
       setIsScanning(false);
@@ -204,7 +254,7 @@ export const KioskMode: React.FC<KioskModeProps> = ({
             }`}>
               <div className="text-xs font-bold text-emerald-400 bg-slate-950/80 px-4 py-1.5 rounded-full border border-emerald-500/30 flex items-center space-x-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
-                <span>স্বয়ংক্রিয় ফেস স্ক্যানার সক্রিয়</span>
+                <span>স্বয়ংক্রিয় ফেস স্ক্যানার সক্রিয় (৫ মিনিটে ১ বার)</span>
               </div>
             </div>
           </div>
@@ -221,22 +271,35 @@ export const KioskMode: React.FC<KioskModeProps> = ({
             </h3>
 
             {lastDetectedStudent ? (
-              <div className="mt-4 bg-slate-950 p-4 rounded-2xl border border-emerald-500/40 text-center space-y-3 animate-in zoom-in-95 duration-200">
-                <div className="w-24 h-24 rounded-2xl overflow-hidden mx-auto border-2 border-emerald-500 shadow-lg shadow-emerald-500/20">
+              <div className={`mt-4 bg-slate-950 p-4 rounded-2xl border text-center space-y-3 animate-in zoom-in-95 duration-200 ${
+                isAlreadyAttended ? 'border-amber-500/50' : 'border-emerald-500/40'
+              }`}>
+                <div className={`w-24 h-24 rounded-2xl overflow-hidden mx-auto border-2 shadow-lg ${
+                  isAlreadyAttended ? 'border-amber-400 shadow-amber-500/20' : 'border-emerald-500 shadow-emerald-500/20'
+                }`}>
                   <img src={lastDetectedStudent.photoUrl} alt={lastDetectedStudent.nameBangla} className="w-full h-full object-cover" />
                 </div>
 
                 <div>
-                  <h4 className="text-lg font-bold text-emerald-300">{lastDetectedStudent.nameBangla}</h4>
+                  <h4 className={`text-lg font-bold ${isAlreadyAttended ? 'text-amber-300' : 'text-emerald-300'}`}>
+                    {lastDetectedStudent.nameBangla}
+                  </h4>
                   <p className="text-xs text-slate-400 mt-0.5 font-mono">
                     {terminology.idLabel}: {lastDetectedStudent.roll} | {lastDetectedStudent.className}
                   </p>
                 </div>
 
-                <div className="bg-emerald-950/80 text-emerald-300 font-bold text-xs py-2 px-3 rounded-xl border border-emerald-500/30 flex items-center justify-center space-x-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>উপস্থিতি সফল! ({detectionTimestamp})</span>
-                </div>
+                {isAlreadyAttended ? (
+                  <div className="bg-amber-950/80 text-amber-300 font-bold text-xs py-2 px-3 rounded-xl border border-amber-500/40 flex items-center justify-center space-x-1.5">
+                    <Info className="w-4 h-4 text-amber-400" />
+                    <span>হাজিরা ইতিমধ্যে গ্রহণ করা হয়েছে ({detectionTimestamp})</span>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-950/80 text-emerald-300 font-bold text-xs py-2 px-3 rounded-xl border border-emerald-500/30 flex items-center justify-center space-x-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>উপস্থিতি সফল! ({detectionTimestamp})</span>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mt-8 text-center text-slate-500 space-y-2">

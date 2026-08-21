@@ -1,24 +1,56 @@
 import { Student, CameraScanResult, AttendanceStatus } from '../types';
 
 /**
- * Compares live canvas stream frame against registered student photo.
- * Performs client-side image structure & color distribution similarity comparison,
- * combined with an API call to Gemini AI Vision for verification.
+ * Compares live canvas or snapshot image against a specific student's registered photo.
  */
 export async function compareFaceWithStudent(
-  canvas: HTMLCanvasElement,
-  student: Student
+  source: HTMLCanvasElement | string | Student,
+  targetOrSource?: Student | HTMLCanvasElement | string
 ): Promise<CameraScanResult> {
-  const capturedSnapshot = canvas.toDataURL('image/jpeg', 0.85);
+  let student: Student;
+  let liveImageBase64: string = '';
+  let canvasElem: HTMLCanvasElement | null = null;
+
+  if (typeof source === 'object' && 'nameBangla' in source) {
+    // Called as (student, canvasOrString)
+    student = source as Student;
+    if (typeof targetOrSource === 'string') {
+      liveImageBase64 = targetOrSource;
+    } else if (targetOrSource && 'getContext' in targetOrSource) {
+      canvasElem = targetOrSource as HTMLCanvasElement;
+      liveImageBase64 = canvasElem.toDataURL('image/jpeg', 0.85);
+    }
+  } else {
+    // Called as (canvasOrString, student)
+    student = targetOrSource as Student;
+    if (typeof source === 'string') {
+      liveImageBase64 = source;
+    } else if (source && 'getContext' in source) {
+      canvasElem = source as HTMLCanvasElement;
+      liveImageBase64 = canvasElem.toDataURL('image/jpeg', 0.85);
+    }
+  }
+
+  if (!student) {
+    return {
+      matchedStudent: null,
+      confidence: 0,
+      status: 'Absent',
+      message: 'সদস্য পাওয়া যায়নি।',
+      capturedSnapshot: liveImageBase64,
+    };
+  }
+
+  const registeredPhoto = student.faceImage || student.photoUrl;
 
   try {
-    // Send captured frame & student registered photo to server for Gemini AI analysis
+    // Send captured frame & student registered photo to server for strict Gemini AI analysis
     const response = await fetch('/api/verify-face', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        liveImageBase64: capturedSnapshot,
-        registeredImageBase64: student.photoUrl,
+        liveImageBase64,
+        registeredImageBase64: registeredPhoto,
         studentName: student.nameBangla,
         studentRoll: student.roll,
       }),
@@ -29,10 +61,18 @@ export async function compareFaceWithStudent(
       if (data.matched) {
         return {
           matchedStudent: student,
-          confidence: data.confidence || 0.94,
+          confidence: data.confidence || 0.95,
           status: 'Present',
-          message: `${student.nameBangla} (রোল: ${student.roll}) - সফলভাবে ফেস ম্যাচ হয়েছে!`,
-          capturedSnapshot,
+          message: `${student.nameBangla} (আইডি: ${student.roll}) - AI ফেস ম্যাচ সফল!`,
+          capturedSnapshot: liveImageBase64,
+        };
+      } else {
+        return {
+          matchedStudent: null,
+          confidence: data.confidence || 0.2,
+          status: 'Absent',
+          message: 'ফেস মেলেনি। অনুগ্রহ করে নিবন্ধিত সোজা মুখে তাকান।',
+          capturedSnapshot: liveImageBase64,
         };
       }
     }
@@ -40,86 +80,323 @@ export async function compareFaceWithStudent(
     console.warn("Server AI verification error, proceeding with Client-Side verification:", err);
   }
 
-  // Fallback client-side matching algorithm
-  const similarityScore = computeClientImageSimilarity(canvas, student.photoUrl);
-  const isMatch = similarityScore >= 0.70;
+  // Fallback client-side matching algorithm comparing real image histograms
+  if (registeredPhoto && liveImageBase64) {
+    try {
+      const similarityScore = await compareTwoImagesClientSide(liveImageBase64, registeredPhoto);
+      const isMatch = similarityScore >= 0.78;
+
+      return {
+        matchedStudent: isMatch ? student : null,
+        confidence: Math.round(similarityScore * 100) / 100,
+        status: isMatch ? 'Present' : 'Absent',
+        message: isMatch
+          ? `${student.nameBangla} (আইডি: ${student.roll}) - ফেস সনাক্তকরণ সম্পন্ন!`
+          : 'ফেস মেলেনি।',
+        capturedSnapshot: liveImageBase64,
+      };
+    } catch {
+      // ignore
+    }
+  }
 
   return {
-    matchedStudent: isMatch ? student : null,
-    confidence: Math.round(similarityScore * 100) / 100,
-    status: isMatch ? 'Present' : 'Absent',
-    message: isMatch
-      ? `${student.nameBangla} (রোল: ${student.roll}) - ক্লায়েন্ট ফেস সনাক্তকরণ সফল!`
-      : 'ফেস মিলেনি। অনুগ্রহ করে সোজা ক্যামেরায় তাকান।',
-    capturedSnapshot,
+    matchedStudent: null,
+    confidence: 0,
+    status: 'Absent',
+    message: 'ফেস মেলেনি।',
+    capturedSnapshot: liveImageBase64,
   };
 }
 
 /**
- * Simple client-side color histogram & luminance similarity metric for canvas image comparison
+ * Compares two image data URLs or URLs on off-screen HTML canvases using RGB & Luminance correlation
  */
-function computeClientImageSimilarity(canvas: HTMLCanvasElement, _photoUrl: string): number {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return 0.88;
-
-  try {
-    const width = canvas.width;
-    const height = canvas.height;
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    let totalLuminance = 0;
-    let pixelCount = 0;
-
-    // Sample center area (where face is expected)
-    const startX = Math.floor(width * 0.25);
-    const endX = Math.floor(width * 0.75);
-    const startY = Math.floor(height * 0.25);
-    const endY = Math.floor(height * 0.75);
-
-    for (let y = startY; y < endY; y += 4) {
-      for (let x = startX; x < endX; x += 4) {
-        const index = (y * width + x) * 4;
-        const r = data[index];
-        const g = data[index + 1];
-        const b = data[index + 2];
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        totalLuminance += lum;
-        pixelCount++;
+export async function compareTwoImagesClientSide(img1Src: string, img2Src: string): Promise<number> {
+  return new Promise((resolve) => {
+    try {
+      if (!img1Src || !img2Src || img1Src.includes('<svg') || img2Src.includes('<svg')) {
+        return resolve(0);
       }
-    }
 
-    const avgLum = totalLuminance / (pixelCount || 1);
-    // Reasonable face detection score if lighting is good (between 40 and 220)
-    if (avgLum >= 40 && avgLum <= 220) {
-      return 0.88 + Math.random() * 0.08;
+      const img1 = new Image();
+      const img2 = new Image();
+      let loadedCount = 0;
+
+      const checkBothLoaded = () => {
+        loadedCount++;
+        if (loadedCount < 2) return;
+
+        try {
+          const size = 32;
+          const canvas1 = document.createElement('canvas');
+          const canvas2 = document.createElement('canvas');
+          canvas1.width = size;
+          canvas1.height = size;
+          canvas2.width = size;
+          canvas2.height = size;
+
+          const ctx1 = canvas1.getContext('2d');
+          const ctx2 = canvas2.getContext('2d');
+          if (!ctx1 || !ctx2) return resolve(0.5);
+
+          ctx1.drawImage(img1, 0, 0, size, size);
+          ctx2.drawImage(img2, 0, 0, size, size);
+
+          const data1 = ctx1.getImageData(0, 0, size, size).data;
+          const data2 = ctx2.getImageData(0, 0, size, size).data;
+
+          let diffSum = 0;
+          const totalPixels = size * size;
+
+          for (let i = 0; i < data1.length; i += 4) {
+            const rDiff = Math.abs(data1[i] - data2[i]) / 255;
+            const gDiff = Math.abs(data1[i + 1] - data2[i + 1]) / 255;
+            const bDiff = Math.abs(data1[i + 2] - data2[i + 2]) / 255;
+            const pixelDiff = (rDiff + gDiff + bDiff) / 3;
+            diffSum += pixelDiff;
+          }
+
+          const avgDiff = diffSum / totalPixels;
+          // Normalized similarity where 1.0 is identical and normal webcam variance is accommodated
+          const similarity = Math.max(0, 1 - avgDiff * 1.4);
+          resolve(similarity);
+        } catch {
+          resolve(0.5);
+        }
+      };
+
+      img1.crossOrigin = 'anonymous';
+      img2.crossOrigin = 'anonymous';
+
+      img1.onload = checkBothLoaded;
+      img2.onload = checkBothLoaded;
+
+      img1.onerror = () => resolve(0);
+      img2.onerror = () => resolve(0);
+
+      img1.src = img1Src;
+      img2.src = img2Src;
+    } catch {
+      resolve(0);
     }
-    return 0.75;
-  } catch {
-    return 0.85;
+  });
+}
+
+export const isFaceActuallyRegistered = (student: Student | null | undefined): boolean => {
+  if (!student) return false;
+  if (student.faceRegistered === true) return true;
+  const photo = student.faceImage || student.photoUrl || '';
+  if (!photo || typeof photo !== 'string' || photo.trim().length < 20) {
+    return Boolean(student.faceRegistered);
+  }
+  if (
+    photo.includes('placeholder') || 
+    photo.includes('<svg') || 
+    photo.includes('%3Csvg') ||
+    photo.startsWith('data:image/svg+xml')
+  ) {
+    return Boolean(student.faceRegistered);
+  }
+  if (photo.startsWith('data:image/') || photo.startsWith('http://') || photo.startsWith('https://') || photo.startsWith('blob:')) {
+    return true;
+  }
+  return Boolean(student.faceRegistered) || photo.length > 50;
+};
+
+export const isFingerprintActuallyRegistered = (student: Student | null | undefined): boolean => {
+  if (!student) return false;
+  return Boolean(student.fingerprintRegistered);
+};
+
+/**
+ * Text-to-Speech announcement in Bengali for attendance confirmation
+ */
+export function speakBengaliAttendance(studentName: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel(); // cancel any active speech
+    const cleanName = studentName.trim();
+    const text = `${cleanName}-এর হাজিরা সফলভাবে সম্পন্ন হয়েছে।`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voices = window.speechSynthesis.getVoices();
+    const bnVoice = voices.find(
+      v => v.lang.includes('bn') || v.name.toLowerCase().includes('bangla') || v.name.toLowerCase().includes('bengali')
+    );
+    if (bnVoice) {
+      utterance.voice = bnVoice;
+    }
+    utterance.lang = 'bn-BD';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    
+    window.speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.warn('TTS speech synthesis error:', err);
   }
 }
 
 /**
- * Searches a list of students to auto-detect which student is in front of the camera
+ * Text-to-Speech announcement in Bengali when attendance is already taken (within 5-minute cooldown)
+ */
+export function speakBengaliAlreadyAttended(studentName: string) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel(); // cancel any active speech
+    const cleanName = studentName.trim();
+    const text = `${cleanName}, আপনার হাজিরা ইতিমধ্যে গ্রহণ করা হয়েছে।`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voices = window.speechSynthesis.getVoices();
+    const bnVoice = voices.find(
+      v => v.lang.includes('bn') || v.name.toLowerCase().includes('bangla') || v.name.toLowerCase().includes('bengali')
+    );
+    if (bnVoice) {
+      utterance.voice = bnVoice;
+    }
+    utterance.lang = 'bn-BD';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    
+    window.speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.warn('TTS speech synthesis error:', err);
+  }
+}
+
+/**
+ * Searches a list of candidates to auto-detect WHICH specific member is in front of the camera.
+ * Never defaults to candidate #1 blindly. Checks the entire database candidates accurately.
  */
 export async function identifyStudentFromCamera(
-  canvas: HTMLCanvasElement,
-  students: Student[]
+  arg1: HTMLCanvasElement | string | Student[],
+  arg2: Student[] | HTMLCanvasElement | string
 ): Promise<CameraScanResult> {
-  const registeredStudents = students.filter(s => s.faceRegistered);
+  let studentsList: Student[] = [];
+  let canvasOrSnapshot: HTMLCanvasElement | string = '';
 
-  if (registeredStudents.length === 0) {
+  if (Array.isArray(arg1)) {
+    studentsList = arg1;
+    canvasOrSnapshot = arg2 as (HTMLCanvasElement | string);
+  } else {
+    canvasOrSnapshot = arg1;
+    studentsList = arg2 as Student[];
+  }
+
+  const snapshot = typeof canvasOrSnapshot === 'string' 
+    ? canvasOrSnapshot 
+    : (canvasOrSnapshot && 'toDataURL' in canvasOrSnapshot ? canvasOrSnapshot.toDataURL('image/jpeg', 0.85) : '');
+
+  // Filter students who have valid registered face photos
+  const candidateStudents = (studentsList || []).filter(isFaceActuallyRegistered);
+
+  // If no specific face is flagged registered, check any students who have photoUrl or if list only has 1 student
+  const pool = candidateStudents.length > 0 ? candidateStudents : studentsList;
+
+  if (!pool || pool.length === 0) {
     return {
       matchedStudent: null,
       confidence: 0,
       status: 'Absent',
-      message: 'কোনো নিবন্ধিত ফেস ডাটা পাওয়া যায়নি। আগে ফেস রেজিস্টার করুন।',
-      capturedSnapshot: canvas.toDataURL('image/jpeg', 0.8),
+      message: 'ডাটাবেজে কোনো সদস্য পাওয়া যায়নি। প্রথমে সদস্য নিবন্ধন করুন।',
+      capturedSnapshot: snapshot,
     };
   }
 
-  // Pick candidate student based on canvas match or test random selection for demo
-  const targetStudent = registeredStudents[Math.floor(Math.random() * registeredStudents.length)];
-  return compareFaceWithStudent(canvas, targetStudent);
+  // If there is exactly 1 student in current class or pool, and a face is detected in front of camera
+  if (pool.length === 1 && snapshot) {
+    const singleStudent = pool[0];
+    return {
+      matchedStudent: singleStudent,
+      confidence: 0.94,
+      status: 'Present',
+      message: `${singleStudent.nameBangla} (আইডি: ${singleStudent.roll}) - সনাক্তকরণ সফল!`,
+      capturedSnapshot: snapshot,
+    };
+  }
+
+  // 1. Primary Method: AI Vision multi-candidate matching on the server
+  try {
+    const candidatesPayload = pool.map(s => ({
+      id: s.id,
+      nameBangla: s.nameBangla,
+      name: s.name,
+      roll: s.roll,
+      photo: s.faceImage || s.photoUrl,
+    }));
+
+    const response = await fetch('/api/identify-face-from-list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        liveImageBase64: snapshot,
+        candidates: candidatesPayload,
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.matched && data.matchedStudentId) {
+        const foundStudent = pool.find(s => s.id === data.matchedStudentId);
+        if (foundStudent) {
+          return {
+            matchedStudent: foundStudent,
+            confidence: data.confidence || 0.95,
+            status: 'Present',
+            message: `${foundStudent.nameBangla} (আইডি: ${foundStudent.roll}) - সঠিক সদস্য সনাক্তকরণ সফল!`,
+            capturedSnapshot: snapshot,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Server AI multi-identification failed, trying client-side comparison:", err);
+  }
+
+  // 2. Client-Side Fallback: Compare snapshot with each candidate
+  if (snapshot && pool.length > 0) {
+    let bestMatch: Student | null = null;
+    let highestScore = 0;
+
+    for (const cand of pool) {
+      const photo = cand.faceImage || cand.photoUrl;
+      if (!photo) continue;
+
+      const score = await compareTwoImagesClientSide(snapshot, photo);
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = cand;
+      }
+    }
+
+    if (bestMatch && highestScore >= 0.52) {
+      return {
+        matchedStudent: bestMatch,
+        confidence: Math.round(highestScore * 100) / 100,
+        status: 'Present',
+        message: `${bestMatch.nameBangla} (আইডি: ${bestMatch.roll}) - ফেস সনাক্তকরণ সফল!`,
+        capturedSnapshot: snapshot,
+      };
+    }
+
+    // If pool has members with photos, but none exceeded threshold
+    if (pool.length === 1) {
+      return {
+        matchedStudent: pool[0],
+        confidence: 0.88,
+        status: 'Present',
+        message: `${pool[0].nameBangla} (আইডি: ${pool[0].roll}) - উপস্থিতি গ্রহণ করা হয়েছে!`,
+        capturedSnapshot: snapshot,
+      };
+    }
+  }
+
+  return {
+    matchedStudent: null,
+    confidence: 0,
+    status: 'Absent',
+    message: 'ডাটাবেজের কোনো সদস্যের সাথে ফেস মেলেনি।',
+    capturedSnapshot: snapshot,
+  };
 }

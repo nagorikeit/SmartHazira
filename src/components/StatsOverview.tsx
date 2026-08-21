@@ -19,34 +19,12 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
   lateCount,
   absentCount,
   attendancePercentage,
-  selectedClassName,
-  autoSaved,
   orgInfo,
 }) => {
   const { terminology } = orgInfo;
 
   return (
-    <div className="space-y-4">
-      {/* Top Banner with Auto-Save Indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-4 rounded-2xl border border-slate-800 text-white shadow-lg">
-        <div>
-          <h2 className="text-base font-bold flex items-center gap-2 text-slate-100">
-            <span>উপস্থিতি তথ্যচিত্র ({terminology.orgCategoryName})</span>
-            <span className="text-xs font-normal text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-800/50">
-              {selectedClassName}
-            </span>
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            আজকের উপস্থিতি রিয়েল-টাইমে বায়োমেট্রিক ও ফেস রিকগনিশনের মাধ্যমে আপডেট হচ্ছে
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700/80 text-xs font-medium text-slate-300 self-start sm:self-auto">
-          <Save className={`w-3.5 h-3.5 ${autoSaved ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
-          <span>{autoSaved ? 'স্বয়ংক্রিয়ভাবে ডাটাবেজে সংরক্ষিত' : 'নতুন ডাটা আপডেট প্রয়োজন'}</span>
-        </div>
-      </div>
-
+    <div>
       {/* Grid Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
         

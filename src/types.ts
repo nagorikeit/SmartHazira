@@ -25,18 +25,25 @@ export interface Student {
   id: string;
   name: string;
   nameBangla: string;
+  nameEnglish?: string;
   roll: string; // Roll number, Staff ID, Card No, or Somity Passbook No
   classId: string;
   className: string;
   companyId?: string;
   companyName?: string;
   photoUrl: string;
+  faceImage?: string;
   faceRegistered: boolean;
   faceDescriptor?: number[];
+  fingerprintRegistered?: boolean;
+  fingerprintTemplate?: string;
+  fingerprintFingerName?: string;
   gender: 'Male' | 'Female' | 'Other';
   guardianPhone: string;
+  parentPhone?: string;
   email?: string;
   attendanceStreak: number;
+  active?: boolean;
   
   // Extended Employee / Member Fields
   designation?: string;
@@ -65,6 +72,16 @@ export interface ClassSubject {
   scheduleTime: string;
 }
 
+export interface AttendancePunch {
+  id: string;
+  time: string;
+  type: 'Entry' | 'Exit' | 'Check';
+  method: AttendanceMethod;
+  confidenceScore?: number;
+  snapshotUrl?: string;
+  notes?: string;
+}
+
 export interface AttendanceRecord {
   id: string;
   studentId: string;
@@ -73,13 +90,20 @@ export interface AttendanceRecord {
   classId: string;
   className: string;
   date: string; // YYYY-MM-DD
-  time: string; // HH:mm:ss AM/PM
+  time: string; // Primary / Latest attendance time
+  entryTime?: string; // প্রথম হাজিরা / প্রবেশ সময়
+  exitTime?: string; // পরবর্তী হাজিরা / বাহির / প্রস্থান সময়
+  totalDuration?: string; // মোট অবস্থিত সময় (e.g., "৭ ঘণ্টা ৩০ মিনিট")
+  totalDurationMinutes?: number; // মোট মিনিট
+  punchCount?: number; // মোট স্ক্যান সংখ্যা
+  punches?: AttendancePunch[]; // সকল স্ক্যানের টাইমলাইন
   status: AttendanceStatus;
   method: AttendanceMethod;
   confidenceScore?: number;
   snapshotUrl?: string;
   verifiedByAI?: boolean;
   notes?: string;
+  updatedAt?: number; // Timestamp of latest entry/punch for sorting
   
   // GPS & Smart Selfie Fields
   latitude?: number;
@@ -180,3 +204,46 @@ export interface CameraScanResult {
   message: string;
   capturedSnapshot: string;
 }
+
+export interface WorkShift {
+  id: string;
+  name: string;
+  nameBangla: string;
+  code: string; // 'MORNING' | 'DAY' | 'EVENING' | 'NIGHT' | 'CUSTOM'
+  startTime: string; // '08:00'
+  endTime: string; // '16:00'
+  dutyDurationHours: number; // e.g. 8
+  gracePeriodMinutes: number; // e.g. 15 (minutes after startTime before marked Late)
+  halfDayMinutes: number; // e.g. 240 (minimum 4 hours)
+  isOvernight: boolean; // crosses midnight (e.g. 22:00 to 06:00)
+  activeDays: number[]; // [0, 1, 2, 3, 4] 0=Sunday, 1=Monday... 6=Saturday
+  department?: string; // Optional specific department or all
+  color: string; // Badge styling color
+  isActive: boolean;
+}
+
+export interface GeofenceSettings {
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  locationName: string;
+  address: string;
+  enforceGeofence: boolean;
+  allowRemoteCheckIn: boolean;
+  wifiSsid?: string;
+  ipWhitelist?: string;
+}
+
+export interface OrganizationScheduleSettings {
+  autoDetectShift: boolean;
+  activeShiftId: string; // Specific shift ID or 'auto'
+  shifts: WorkShift[];
+  geofence: GeofenceSettings;
+  overtimeEnabled: boolean;
+  overtimeThresholdMinutes: number; // e.g. 30 minutes after shift
+  overtimeHourlyMultiplier: number; // e.g. 1.5
+  weeklyHolidays: number[]; // e.g. [5] for Friday or [5, 6] for Fri+Sat
+  autoCheckoutEnabled: boolean;
+  autoCheckoutTime: string; // e.g. '23:59'
+}
+

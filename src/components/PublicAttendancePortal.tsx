@@ -181,9 +181,9 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
         try {
-          const matched = await identifyStudentFromCamera(canvas, students);
-          if (matched) {
-            handleSuccessfulPunch(matched, 'Face');
+          const result = await identifyStudentFromCamera(canvas, students);
+          if (result && result.matchedStudent) {
+            handleSuccessfulPunch(result.matchedStudent, 'Face AI');
           } else {
             setScanMessage('ক্যামেরার দিকে সরাসরি সোজা তাকান...');
           }
@@ -198,7 +198,7 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
   }, [isScanning, students, activeMode, detectionSuccess]);
 
   // Handle Successful Attendance Submission
-  const handleSuccessfulPunch = (student: Student, method: 'Face' | 'PIN' | 'QR') => {
+  const handleSuccessfulPunch = (student: Student, method: 'Face AI' | 'Manual' | 'QR Scan') => {
     setLastDetectedStudent(student);
     const nowTime = new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const today = new Date().toISOString().split('T')[0];
@@ -218,7 +218,7 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
       date: today,
       time: nowTime,
       status: 'Present',
-      method: method === 'Face' ? 'Face' : 'Manual',
+      method: method,
       notes: `সেলফ-সার্ভিস পাবলিক লিংক থেকে হাজিরা নিশ্চিত (${method})`
     };
 
@@ -243,7 +243,7 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
     const matched = students.find(s => s.roll === pinInput.trim() || s.id === pinInput.trim() || s.phone?.endsWith(pinInput.trim()));
     if (matched) {
       setPinError(null);
-      handleSuccessfulPunch(matched, 'PIN');
+      handleSuccessfulPunch(matched, 'Manual');
     } else {
       setPinError('কোনো কর্মীর তথ্য পাওয়া যায়নি। অনুগ্রহ করে সঠিক আইডি বা রোল টাইপ করুন।');
     }

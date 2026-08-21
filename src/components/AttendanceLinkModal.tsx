@@ -14,10 +14,12 @@ import {
   Lock, 
   Sparkles,
   Layers,
-  Info
+  Info,
+  Download
 } from 'lucide-react';
 import { RegisteredCompany } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
+import { printHtmlContent, generateAttendanceQrPosterHtml } from '../utils/printUtils';
 
 interface AttendanceLinkModalProps {
   isOpen: boolean;
@@ -38,12 +40,15 @@ export const AttendanceLinkModal: React.FC<AttendanceLinkModalProps> = ({
   const [requireGeofence, setRequireGeofence] = useState<boolean>(true);
   const [allowManualPin, setAllowManualPin] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'link' | 'qr' | 'security'>('link');
+  const [isPrinting, setIsPrinting] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
   const currentUrl = window.location.origin + window.location.pathname;
   const companySlug = company?.id || 'default_company';
+  const companyName = company?.nameBangla || orgInfo.label;
   const attendanceLink = `${currentUrl}?mode=attendance&companyId=${encodeURIComponent(companySlug)}&geo=${requireGeofence ? '1' : '0'}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=450x450&data=${encodeURIComponent(attendanceLink)}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(attendanceLink);
@@ -52,18 +57,42 @@ export const AttendanceLinkModal: React.FC<AttendanceLinkModalProps> = ({
   };
 
   const handlePrintQR = () => {
-    window.print();
+    setIsPrinting(true);
+    const html = generateAttendanceQrPosterHtml(
+      companyName,
+      orgInfo.terminology.orgCategoryName,
+      attendanceLink
+    );
+    printHtmlContent(html, `${companyName}_ডিজিটাল_হাজিরা_কিউআর_পোস্টার`);
+    setTimeout(() => setIsPrinting(false), 800);
+  };
+
+  const handleDownloadQrImage = async () => {
+    try {
+      const response = await fetch(qrImageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${companyName}_হাজিরা_QR_কোড.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      window.open(qrImageUrl, '_blank');
+    }
   };
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `স্মার্ট ডিজিটাল হাজিরা লিংক (${company?.nameBangla || orgInfo.label}):\nকর্মীরা এই লিংকে ক্লিক করে তাৎক্ষণিক ফেস স্ক্যান বা আইডি দিয়ে হাজিরা দিন:\n${attendanceLink}`
+      `স্মার্ট ডিজিটাল হাজিরা লিংক (${companyName}):\nকর্মীরা এই লিংকে ক্লিক করে তাৎক্ষণিক ফেস স্ক্যান বা আইডি দিয়ে হাজিরা দিন:\n${attendanceLink}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Modal Header */}
@@ -233,70 +262,59 @@ export const AttendanceLinkModal: React.FC<AttendanceLinkModalProps> = ({
           {activeTab === 'qr' && (
             <div className="space-y-6 text-center">
               
-              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed border-emerald-500/40 inline-block mx-auto shadow-lg space-y-4">
+              {/* Noticeboard Poster Frame */}
+              <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border-2 border-dashed border-emerald-500/50 inline-block mx-auto shadow-xl space-y-4 max-w-sm">
                 
                 <div className="text-center space-y-1">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full">
-                    {company?.nameBangla || orgInfo.label}
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    {companyName}
                   </span>
                   <h4 className="font-black text-slate-900 dark:text-white text-base">
                     স্মার্ট ডিজিটাল হাজিরা কিউআর
                   </h4>
-                </div>
-
-                {/* SVG Visual QR Code with embedded styling */}
-                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-inner flex items-center justify-center mx-auto w-48 h-48">
-                  <svg className="w-full h-full text-slate-900" viewBox="0 0 100 100" fill="currentColor">
-                    {/* Corner 1 */}
-                    <rect x="5" y="5" width="30" height="30" fill="#0f172a" rx="4" />
-                    <rect x="10" y="10" width="20" height="20" fill="white" rx="2" />
-                    <rect x="14" y="14" width="12" height="12" fill="#10b981" rx="2" />
-
-                    {/* Corner 2 */}
-                    <rect x="65" y="5" width="30" height="30" fill="#0f172a" rx="4" />
-                    <rect x="70" y="10" width="20" height="20" fill="white" rx="2" />
-                    <rect x="74" y="14" width="12" height="12" fill="#10b981" rx="2" />
-
-                    {/* Corner 3 */}
-                    <rect x="5" y="65" width="30" height="30" fill="#0f172a" rx="4" />
-                    <rect x="10" y="70" width="20" height="20" fill="white" rx="2" />
-                    <rect x="14" y="74" width="12" height="12" fill="#10b981" rx="2" />
-
-                    {/* Random Matrix Patterns */}
-                    <rect x="42" y="8" width="6" height="6" fill="#0f172a" />
-                    <rect x="52" y="8" width="6" height="6" fill="#0f172a" />
-                    <rect x="42" y="20" width="16" height="6" fill="#0f172a" />
-                    <rect x="8" y="42" width="16" height="6" fill="#0f172a" />
-                    <rect x="8" y="52" width="6" height="6" fill="#0f172a" />
-                    <rect x="42" y="42" width="16" height="16" fill="#10b981" rx="2" />
-                    <rect x="65" y="42" width="8" height="8" fill="#0f172a" />
-                    <rect x="78" y="42" width="14" height="6" fill="#0f172a" />
-                    <rect x="65" y="55" width="27" height="6" fill="#0f172a" />
-                    <rect x="42" y="65" width="8" height="27" fill="#0f172a" />
-                    <rect x="55" y="65" width="12" height="6" fill="#0f172a" />
-                    <rect x="72" y="68" width="20" height="8" fill="#0f172a" />
-                    <rect x="55" y="78" width="37" height="14" fill="#0f172a" />
-                  </svg>
-                </div>
-
-                <div className="text-center">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    যেকোনো স্মার্টফোনের ক্যামেরা দিয়ে স্ক্যান করুন
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    অফিস / প্রতিষ্ঠানের নোটিশবোর্ডের জন্য উপযোগী
                   </p>
-                  <p className="text-[10px] text-slate-500">
-                    স্ক্যান করলেই সরাসরি ফেস হাজিরা উইন্ডো ওপেন হবে
+                </div>
+
+                {/* Real QR Code */}
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-md flex items-center justify-center mx-auto w-52 h-52">
+                  <img
+                    src={qrImageUrl}
+                    alt="হাজিরা কিউআর কোড"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center justify-center space-x-1.5">
+                    <Camera className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>স্মার্টফোনের ক্যামেরা দিয়ে স্ক্যান করুন</span>
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    স্ক্যান করলেই সরাসরি ফেস হাজিরা পোর্টাল ওপেন হবে
                   </p>
                 </div>
 
               </div>
 
-              <div className="flex items-center justify-center space-x-3">
+              {/* Action Buttons: Print & Download */}
+              <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
                   onClick={handlePrintQR}
-                  className="px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-xs flex items-center space-x-2 shadow-md transition cursor-pointer"
+                  disabled={isPrinting}
+                  className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs flex items-center space-x-2 shadow-lg transition cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>অফিসের নোটিশবোর্ডের জন্য প্রিন্ট করুন</span>
+                  <span>নোটিশবোর্ডের জন্য পোস্টার প্রিন্ট করুন (A4)</span>
+                </button>
+
+                <button
+                  onClick={handleDownloadQrImage}
+                  className="px-4 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center space-x-2 border border-slate-300 dark:border-slate-700 transition cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-emerald-500" />
+                  <span>QR ইমেজ ডাউনলোড</span>
                 </button>
               </div>
 

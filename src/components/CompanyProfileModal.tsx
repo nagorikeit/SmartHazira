@@ -16,7 +16,8 @@ import {
   Key, 
   Sparkles,
   Sliders,
-  ExternalLink
+  ExternalLink,
+  Clock
 } from 'lucide-react';
 import { RegisteredCompany, UserRole } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
@@ -31,6 +32,7 @@ interface CompanyProfileModalProps {
   totalMembersCount: number;
   onUpdateCompany?: (updated: RegisteredCompany) => void;
   onOpenOrgSelector?: () => void;
+  onOpenScheduleSettings?: () => void;
   onSignOut?: () => void;
   onOpenAuditLogs?: () => void;
 }
@@ -44,6 +46,7 @@ export const CompanyProfileModal: React.FC<CompanyProfileModalProps> = ({
   totalMembersCount,
   onUpdateCompany,
   onOpenOrgSelector,
+  onOpenScheduleSettings,
   onSignOut,
   onOpenAuditLogs,
 }) => {

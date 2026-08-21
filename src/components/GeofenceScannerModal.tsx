@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Camera, MapPin, ShieldCheck, AlertTriangle, RefreshCw, CheckCircle2, Navigation, Radio } from 'lucide-react';
-import { Student, AttendanceRecord, AttendanceStatus } from '../types';
+import { X, Camera, MapPin, ShieldCheck, AlertTriangle, RefreshCw, CheckCircle2, Navigation, Radio, Clock } from 'lucide-react';
+import { Student, AttendanceRecord, AttendanceStatus, OrganizationScheduleSettings } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
+import { calculateDistanceMeters, getCurrentActiveShift, formatTimeInBangla } from '../utils/scheduleConfig';
 
 interface GeofenceScannerModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface GeofenceScannerModalProps {
   students: Student[];
   orgInfo: OrgCategoryInfo;
   onAttendanceUpdated: (record: AttendanceRecord) => void;
+  scheduleSettings?: OrganizationScheduleSettings;
 }
 
 export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
@@ -17,6 +19,7 @@ export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
   students,
   orgInfo,
   onAttendanceUpdated,
+  scheduleSettings,
 }) => {
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [capturedSelfie, setCapturedSelfie] = useState<string | null>(null);
@@ -31,13 +34,17 @@ export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Target Org Geofence Coordinates (Default Dhaka Campus / Office Zone)
+  // Target Org Geofence Coordinates (From Settings or fallback)
   const targetGeofence = {
-    lat: 23.777176,
-    lng: 90.399452,
-    radiusMeters: 200,
-    name: 'প্রধান কার্যালয় / ক্যাম্পাস জিওফেন্স জোন'
+    lat: scheduleSettings?.geofence.latitude || 23.777176,
+    lng: scheduleSettings?.geofence.longitude || 90.399452,
+    radiusMeters: scheduleSettings?.geofence.radiusMeters || 200,
+    name: scheduleSettings?.geofence.locationName || 'প্রধান কার্যালয় / ক্যাম্পাস জিওফেন্স জোন',
+    address: scheduleSettings?.geofence.address || 'ঢাকা'
   };
+
+  const activeShift = scheduleSettings ? getCurrentActiveShift(scheduleSettings) : null;
+
 
   useEffect(() => {
     if (isOpen) {
@@ -255,6 +262,12 @@ export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
                   <p className="text-xs mt-1 opacity-90">
                     {isGpsLoading ? 'জিপিএস লোকেশন রিড করা হচ্ছে...' : gpsLocation?.address}
                   </p>
+                  {activeShift && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-emerald-500" />
+                      <span>চলমান শিফট: {activeShift.nameBangla} ({formatTimeInBangla(activeShift.startTime)} - {formatTimeInBangla(activeShift.endTime)})</span>
+                    </p>
+                  )}
                   <p className="text-[11px] font-mono mt-0.5 opacity-75">
                     সঠিকতা (Accuracy): ±{gpsLocation?.accuracy || 10} মি | স্যাটেলাইট সিগন্যাল: স্ট্রং
                   </p>

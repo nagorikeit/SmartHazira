@@ -166,6 +166,15 @@ export async function saveMemberToFirestore(member: Student) {
   }
 }
 
+export async function deleteMemberFromFirestore(memberId: string) {
+  const path = `members/${memberId}`;
+  try {
+    await deleteDoc(doc(db, 'members', memberId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
 export function subscribeToAttendance(onUpdate: (records: AttendanceRecord[]) => void) {
   const colRef = collection(db, 'attendance');
   const q = query(colRef, orderBy('date', 'desc'), limit(200));
