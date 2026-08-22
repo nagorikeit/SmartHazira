@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole, ClassSubject, Student, AttendanceRecord, PayrollRecord, SomityTransaction, LeaveRequest, AuditLogItem, RegisteredCompany } from './types';
+import { UserRole, ClassSubject, Student, AttendanceRecord, PayrollRecord, SomityTransaction, LeaveRequest, AuditLogItem, RegisteredCompany, OrganizationScheduleSettings } from './types';
 import { getStoredClasses, getStoredStudents, getStoredAttendance, getDailySummaryForClass } from './utils/storage';
 import { OrgCategoryKey, ORG_CATEGORIES, getStoredOrgCategory, saveOrgCategory } from './utils/organizationConfig';
+import { getStoredScheduleSettings, saveScheduleSettings, getCurrentActiveShift } from './utils/scheduleConfig';
+import { ScheduleSettingsModal } from './components/ScheduleSettingsModal';
 import {
   CATEGORY_CLASSES,
   CATEGORY_MEMBERS,
@@ -46,6 +48,7 @@ import { AttendanceLinkModal } from './components/AttendanceLinkModal';
 import { PublicAttendancePortal } from './components/PublicAttendancePortal';
 import { BiometricManagementModal } from './components/BiometricManagementModal';
 import { EditMemberModal } from './components/EditMemberModal';
+import { ScheduleSettingsView } from './components/ScheduleSettingsView';
 import { FooterNavigation } from './components/FooterNavigation';
 import { exportAttendanceCSV, saveStudents } from './utils/storage';
 
@@ -78,6 +81,8 @@ import {
   subscribeToAttendance,
   saveAttendanceToFirestore,
   saveAuditLogToFirestore,
+  subscribeToScheduleSettings,
+  saveScheduleSettingsToFirestore,
   subscribeToAuth,
   signInWithGoogle,
   signOutUser
@@ -241,9 +246,11 @@ export default function App() {
   };
 
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'payroll' | 'somity' | 'leave' | 'academic' | 'ai' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'payroll' | 'somity' | 'leave' | 'academic' | 'ai' | 'analytics' | 'schedule'>('dashboard');
 
   // Modals state
+  const [scheduleSettings, setScheduleSettings] = useState<OrganizationScheduleSettings>(getStoredScheduleSettings());
+  const [isScheduleSettingsOpen, setIsScheduleSettingsOpen] = useState<boolean>(false);
   const [isFaceScannerOpen, setIsFaceScannerOpen] = useState<boolean>(false);
   const [isGeofenceScannerOpen, setIsGeofenceScannerOpen] = useState<boolean>(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
@@ -339,6 +346,13 @@ export default function App() {
       }
     });
 
+    const unsubSchedule = subscribeToScheduleSettings((cloudSettings) => {
+      if (cloudSettings && cloudSettings.shifts && cloudSettings.shifts.length > 0) {
+        setScheduleSettings(cloudSettings);
+        saveScheduleSettings(cloudSettings);
+      }
+    });
+
     // Subscribe to Auth state
     const unsubAuth = subscribeToAuth((user) => {
       setCurrentUser(user);
@@ -348,6 +362,7 @@ export default function App() {
       unsubCompanies();
       unsubMembers();
       unsubAttendance();
+      unsubSchedule();
       unsubAuth();
     };
   }, []);
@@ -544,6 +559,24 @@ export default function App() {
     setLeaveRequests(prev => [request, ...prev]);
   };
 
+  // Schedule & Geofence Settings handler
+  const handleSaveScheduleSettings = (newSettings: OrganizationScheduleSettings) => {
+    setScheduleSettings(newSettings);
+    saveScheduleSettings(newSettings);
+    saveScheduleSettingsToFirestore(newSettings);
+    const newLog: AuditLogItem = {
+      id: `log-sch-${Date.now()}`,
+      userRole: currentRole,
+      action: 'Schedule & Geofence Updated',
+      targetMember: 'Organization Shift System',
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: `শিফট সংখ্যা: ${newSettings.shifts.length}, GPS ব্যাসার্ধ: ${newSettings.geofence.radiusMeters}m`,
+      status: 'Success'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
+  };
+
   // If opened in Public Self-Service Attendance Portal Mode, render isolated portal without admin credentials
   if (isPublicPortalOpen) {
     return (
@@ -585,7 +618,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950/5 text-slate-800 font-sans antialiased selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-100/80 text-slate-900 font-sans antialiased selection:bg-emerald-500 selection:text-white">
       
       {/* Top Main Navigation Bar for Company Admin & Users */}
       {currentRole === 'teacher' ? (
@@ -607,6 +640,8 @@ export default function App() {
           onOpenAuditLog={() => setIsAuditLogOpen(true)}
           onOpenSmsModal={() => setIsSmsModalOpen(true)}
           onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+          onOpenScheduleSettings={() => setActiveTab('schedule')}
+          activeShiftTitle={getCurrentActiveShift(scheduleSettings)?.nameBangla}
           onOpenNavigationMenu={() => setIsNavMenuOpen(true)}
           onSignOut={handleGoogleSignOut}
         />
@@ -738,6 +773,13 @@ export default function App() {
                 attendanceRecords={attendanceRecords}
                 orgInfo={orgInfo}
               />
+            ) : activeTab === 'schedule' ? (
+              <ScheduleSettingsView
+                settings={scheduleSettings}
+                onSaveSettings={handleSaveScheduleSettings}
+                orgInfo={orgInfo}
+                onBackToDashboard={() => setActiveTab('dashboard')}
+              />
             ) : (
               <AnalyticsView
                 classes={classes}
@@ -780,6 +822,7 @@ export default function App() {
         selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
         onAttendanceUpdated={handleAttendanceUpdated}
         orgInfo={orgInfo}
+        scheduleSettings={scheduleSettings}
       />
 
       {/* Student Face Register Modal */}
@@ -871,6 +914,7 @@ export default function App() {
         onOpenSmsModal={() => setIsSmsModalOpen(true)}
         onOpenAuditLog={() => setIsAuditLogOpen(true)}
         onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+        onOpenScheduleSettings={() => setActiveTab('schedule')}
         onExportCSV={() => {
           exportAttendanceCSV(attendanceRecords, `attendance_report_${new Date().toISOString().split('T')[0]}.csv`);
         }}
@@ -900,6 +944,15 @@ export default function App() {
         onRoleChange={setCurrentRole}
       />
 
+      {/* Schedule, Shift (24h) & GPS Geofence Settings Modal */}
+      <ScheduleSettingsModal
+        isOpen={isScheduleSettingsOpen}
+        onClose={() => setIsScheduleSettingsOpen(false)}
+        settings={scheduleSettings}
+        orgInfo={orgInfo}
+        onSaveSettings={handleSaveScheduleSettings}
+      />
+
       {/* Company Admin Profile & Settings Modal */}
       <CompanyProfileModal
         isOpen={isCompanyProfileModalOpen}
@@ -912,6 +965,7 @@ export default function App() {
           handleAddCompany(updated);
         }}
         onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
+        onOpenScheduleSettings={() => setIsScheduleSettingsOpen(true)}
         onSignOut={handleGoogleSignOut}
         onOpenAuditLogs={() => setIsAuditLogOpen(true)}
       />
@@ -966,6 +1020,7 @@ export default function App() {
           onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
           onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
           onOpenNavMenu={() => setIsNavMenuOpen(true)}
+          onOpenProfileModal={() => setIsCompanyProfileModalOpen(true)}
           onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
           onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
         />

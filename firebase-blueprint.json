@@ -65,7 +65,11 @@
         "confidenceScore": { "type": "number" },
         "snapshotUrl": { "type": "string", "maxLength": 5000 },
         "verifiedByAI": { "type": "boolean" },
-        "notes": { "type": "string", "maxLength": 500 }
+        "notes": { "type": "string", "maxLength": 500 },
+        "shiftId": { "type": "string", "maxLength": 64 },
+        "shiftName": { "type": "string", "maxLength": 100 },
+        "shiftCode": { "type": "string", "maxLength": 30 },
+        "shiftTiming": { "type": "string", "maxLength": 50 }
       },
       "required": ["studentId", "date", "status", "method"]
     },
@@ -101,6 +105,10 @@
     "/audit_logs/{logId}": {
       "schema": "AuditLog",
       "description": "Audit and administrative event records."
+    },
+    "/settings/{settingId}": {
+      "schema": "ScheduleSettings",
+      "description": "Organization schedule, shifts, geofence, and overtime configurations."
     }
   }
 }

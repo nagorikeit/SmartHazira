@@ -244,6 +244,21 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                   </div>
                 </button>
 
+                <button
+                  onClick={() => handleTabSwitch('schedule')}
+                  className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
+                    activeTab === 'schedule'
+                      ? 'bg-slate-900 dark:bg-emerald-600 text-white border-transparent shadow-md'
+                      : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500/40'
+                  }`}
+                >
+                  <Clock className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <div className="truncate">
+                    <p className="font-bold text-xs">শিফট ও সিডিউল</p>
+                    <p className="text-[10px] opacity-70">২৪ ঘণ্টা ও GPS</p>
+                  </div>
+                </button>
+
                 {orgKey === 'educational' && (
                   <button
                     onClick={() => handleTabSwitch('academic')}

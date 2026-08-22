@@ -4,6 +4,7 @@ import {
   Users, 
   Camera, 
   BarChart3, 
+  User,
   SlidersHorizontal,
   Sparkles
 } from 'lucide-react';
@@ -17,6 +18,10 @@ interface FooterNavigationProps {
   orgInfo: OrgCategoryInfo;
   onOpenFaceScanner?: () => void;
   onOpenNavMenu?: () => void;
+  onOpenProfileModal?: () => void;
+  onOpenFingerprintScanner?: () => void;
+  onOpenRegisterModal?: () => void;
+  onOpenAttendanceLinkModal?: () => void;
 }
 
 export const FooterNavigation: React.FC<FooterNavigationProps> = ({
@@ -26,6 +31,7 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
   orgInfo,
   onOpenFaceScanner,
   onOpenNavMenu,
+  onOpenProfileModal,
 }) => {
   const { terminology } = orgInfo;
 
@@ -137,19 +143,21 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             </span>
           </button>
 
-          {/* Item 5: মেনু ও অন্যান্য সকল টুলস */}
+          {/* Item 5: প্রোফাইল সংক্রান্ত মেনু */}
           <button
-            id="footer-action-menu"
+            id="footer-action-profile"
             type="button"
-            onClick={onOpenNavMenu}
-            title="সকল মেনু ও অতিরিক্ত ফিচার"
+            onClick={onOpenProfileModal || onOpenNavMenu}
+            title="কোম্পানি ও এডমিন প্রোফাইল সেটিংস"
             className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-slate-200"
           >
             <div className="relative z-10 flex items-center justify-center">
-              <SlidersHorizontal className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-400 group-hover:text-emerald-400 stroke-[1.8]" />
+              <div className="p-1 rounded-full group-hover:bg-emerald-500/20 transition">
+                <User className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-400 group-hover:text-emerald-400 stroke-[1.8]" />
+              </div>
             </div>
-            <span className="text-[11px] leading-tight mt-1 z-10 truncate text-slate-400 group-hover:text-slate-200">
-              মেনু
+            <span className="text-[11px] leading-tight mt-0.5 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
+              প্রোফাইল
             </span>
           </button>
 

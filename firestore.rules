@@ -62,6 +62,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Organization & Schedule Settings Collection
+    match /settings/{settingId} {
+      allow read, write: if isValidId(settingId);
+    }
+
     // Test connection document
     match /test/{docId} {
       allow read, write: if true;

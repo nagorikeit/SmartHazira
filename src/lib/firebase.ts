@@ -20,7 +20,7 @@ import {
   limit
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { RegisteredCompany, Student, AttendanceRecord, AuditLogItem } from '../types';
+import { RegisteredCompany, Student, AttendanceRecord, AuditLogItem, OrganizationScheduleSettings } from '../types';
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -208,3 +208,27 @@ export async function saveAuditLogToFirestore(log: AuditLogItem) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
+
+export function subscribeToScheduleSettings(onUpdate: (settings: OrganizationScheduleSettings) => void) {
+  const docRef = doc(db, 'settings', 'schedule_config');
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data() as OrganizationScheduleSettings;
+      if (data && data.shifts && data.shifts.length > 0) {
+        onUpdate(data);
+      }
+    }
+  }, (err) => {
+    handleFirestoreError(err, OperationType.GET, 'settings/schedule_config');
+  });
+}
+
+export async function saveScheduleSettingsToFirestore(settings: OrganizationScheduleSettings) {
+  const path = 'settings/schedule_config';
+  try {
+    await setDoc(doc(db, 'settings', 'schedule_config'), settings, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+

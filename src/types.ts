@@ -105,6 +105,12 @@ export interface AttendanceRecord {
   notes?: string;
   updatedAt?: number; // Timestamp of latest entry/punch for sorting
   
+  // Shift Information (শিফট তথ্য)
+  shiftId?: string;
+  shiftName?: string; // e.g. "ডে শিফট", "মর্নিং শিফট", "নাইট শিফট"
+  shiftCode?: string; // e.g. "DAY", "MORNING", "NIGHT"
+  shiftTiming?: string; // e.g. "০৯:০০ - ১৭:০০"
+  
   // GPS & Smart Selfie Fields
   latitude?: number;
   longitude?: number;

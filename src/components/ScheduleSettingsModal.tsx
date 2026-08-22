@@ -17,7 +17,6 @@ import {
   Layers, 
   RefreshCw, 
   Save, 
-  RotateCcw, 
   Calendar, 
   Zap, 
   CheckCircle2, 
@@ -61,6 +60,7 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
   // Shift Editor Modal / Form state
   const [isEditingShift, setIsEditingShift] = useState<boolean>(false);
   const [editingShiftData, setEditingShiftData] = useState<WorkShift | null>(null);
+  const [confirmDeleteShift, setConfirmDeleteShift] = useState<boolean>(false);
 
   // GPS Auto-detect state
   const [isLocating, setIsLocating] = useState<boolean>(false);
@@ -125,20 +125,20 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
   const handleApplyPresetTemplate = (templateId: string) => {
     const tpl = PRESET_SHIFT_TEMPLATES.find(t => t.id === templateId);
     if (!tpl) return;
-    if (confirm(`আপনি কি "${tpl.name}" টেমপ্লেটটি প্রয়োগ করতে চান? পূর্বের শিফট তালিকা প্রতিস্থাপিত হবে।`)) {
-      setLocalSettings(prev => ({
-        ...prev,
-        shifts: tpl.shifts
-      }));
-      showToast(`"${tpl.name}" সফলভাবে যুক্ত হয়েছে!`);
-    }
+    const updated: OrganizationScheduleSettings = {
+      ...localSettings,
+      shifts: tpl.shifts
+    };
+    setLocalSettings(updated);
+    onSaveSettings(updated);
+    showToast(`"${tpl.name}" শিফট টেমপ্লেট সফলভাবে প্রয়োগ ও ডাটাবেজে সংরক্ষণ করা হয়েছে!`);
   };
 
   const handleSaveShift = () => {
     if (!editingShiftData) return;
 
     if (!editingShiftData.nameBangla.trim()) {
-      alert('অনুগ্রহ করে শিফটের নাম লিখুন');
+      showToast('অনুগ্রহ করে শিফটের নাম লিখুন');
       return;
     }
 
@@ -156,42 +156,55 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
       dutyDurationHours: hours > 0 ? hours : 8
     };
 
-    setLocalSettings(prev => {
-      const existingIdx = prev.shifts.findIndex(s => s.id === finalShift.id);
-      let updatedShifts: WorkShift[];
-      if (existingIdx >= 0) {
-        updatedShifts = [...prev.shifts];
-        updatedShifts[existingIdx] = finalShift;
-      } else {
-        updatedShifts = [...prev.shifts, finalShift];
-      }
-      return { ...prev, shifts: updatedShifts };
-    });
+    const existingIdx = localSettings.shifts.findIndex(s => s.id === finalShift.id);
+    let updatedShifts: WorkShift[];
+    if (existingIdx >= 0) {
+      updatedShifts = [...localSettings.shifts];
+      updatedShifts[existingIdx] = finalShift;
+    } else {
+      updatedShifts = [...localSettings.shifts, finalShift];
+    }
+    const updated: OrganizationScheduleSettings = {
+      ...localSettings,
+      shifts: updatedShifts
+    };
+
+    setLocalSettings(updated);
+    onSaveSettings(updated);
 
     setIsEditingShift(false);
     setEditingShiftData(null);
-    showToast('শিফট সফলভাবে সংরক্ষিত হয়েছে');
+    setConfirmDeleteShift(false);
+    showToast('শিফট সফলভাবে সংরক্ষিত ও ডাটাবেজে আপডেট হয়েছে');
   };
 
-  const handleDeleteShift = (shiftId: string) => {
+  const executeDeleteShift = (shiftId: string) => {
     if (localSettings.shifts.length <= 1) {
-      alert('সিস্টেমে কমপক্ষে ১টি শিফট সক্রিয় থাকতে হবে।');
+      showToast('সিস্টেমে কমপক্ষে ১টি শিফট সক্রিয় থাকতে হবে!');
+      setConfirmDeleteShift(false);
       return;
     }
-    if (confirm('আপনি কি নিশ্চিত যে এই শিফটটি মুছে ফেলতে চান?')) {
-      setLocalSettings(prev => ({
-        ...prev,
-        shifts: prev.shifts.filter(s => s.id !== shiftId)
-      }));
-      showToast('শিফট মুছে ফেলা হয়েছে');
-    }
+    const updatedShifts = localSettings.shifts.filter(s => s.id !== shiftId);
+    const updated: OrganizationScheduleSettings = {
+      ...localSettings,
+      shifts: updatedShifts,
+      activeShiftId: localSettings.activeShiftId === shiftId ? 'auto' : localSettings.activeShiftId
+    };
+    setLocalSettings(updated);
+    onSaveSettings(updated);
+    setConfirmDeleteShift(false);
+    setIsEditingShift(false);
+    setEditingShiftData(null);
+    showToast('শিফট সফলভাবে মুছে ফেলা হয়েছে ও ডাটাবেজে সংরক্ষিত হয়েছে');
   };
 
   const handleToggleShiftActive = (shiftId: string) => {
-    setLocalSettings(prev => ({
-      ...prev,
-      shifts: prev.shifts.map(s => s.id === shiftId ? { ...s, isActive: !s.isActive } : s)
-    }));
+    const updated: OrganizationScheduleSettings = {
+      ...localSettings,
+      shifts: localSettings.shifts.map(s => s.id === shiftId ? { ...s, isActive: !s.isActive } : s)
+    };
+    setLocalSettings(updated);
+    onSaveSettings(updated);
   };
 
   const handleAddNewShift = () => {
@@ -232,100 +245,103 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md p-2 sm:p-4 md:p-6 flex items-start justify-center animate-fadeIn overscroll-contain">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 my-2 sm:my-6 flex flex-col relative">
         
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-5 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
-          <div className="flex items-center space-x-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shrink-0">
-              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-emerald-400">
-                <Sliders className="w-5 h-5" />
+        {/* Sticky Header & Tabs Container */}
+        <div className="sticky top-0 z-20 rounded-t-2xl sm:rounded-t-3xl overflow-hidden shadow-sm">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 p-4 sm:p-5 text-white flex items-center justify-between border-b border-slate-800">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shrink-0">
+                <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-emerald-400">
+                  <Sliders className="w-5 h-5" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-base sm:text-lg font-black text-white">
+                    সিডিউল, শিফট ও জিও-লোকেশন সেটিংস
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    ২৪ ঘণ্টা কন্ট্রোল
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  ডিউটি শিফট, সময়সীমা, লেট গ্রেস পিরিয়ড ও GPS জিওফেন্স কোড কনফিগার করুন
+                </p>
               </div>
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-black text-white">
-                  সিডিউল, শিফট ও জিও-লোকেশন সেটিংস
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  ২৪ ঘণ্টা কন্ট্রোল
-                </span>
-              </div>
-              <p className="text-xs text-slate-300">
-                ডিউটি শিফট, সময়সীমা, লেট গ্রেস পিরিয়ড ও GPS জিওফেন্স কোড কনফিগার করুন
-              </p>
+
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/80 hover:bg-slate-700 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Real-time Running Shift Banner */}
+          <div className="bg-emerald-950/90 dark:bg-emerald-950/90 bg-emerald-50 text-slate-900 dark:text-white border-b border-emerald-500/30 px-5 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2">
+            <div className="flex items-center space-x-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="font-bold text-slate-700 dark:text-slate-200">
+                বর্তমানে চলমান শিফট:
+              </span>
+              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white font-extrabold shadow-xs">
+                {currentActive.nameBangla} ({formatTimeInBangla(currentActive.startTime)} - {formatTimeInBangla(currentActive.endTime)})
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-[11px]">
+              <span>ডিউটি: <strong>{currentActive.dutyDurationHours} ঘণ্টা</strong></span>
+              <span>&bull;</span>
+              <span>গ্রেস: <strong>{currentActive.gracePeriodMinutes} মিনিট</strong></span>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/80 hover:bg-slate-700 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          {/* Tabs Bar */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 px-5 gap-2 pt-2 overflow-x-auto">
+            <button
+              onClick={() => { setActiveTab('shifts'); setIsEditingShift(false); }}
+              className={`pb-2.5 px-3 font-bold text-xs flex items-center space-x-2 border-b-2 whitespace-nowrap transition cursor-pointer ${
+                activeTab === 'shifts'
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span>শিফট ও ডিউটি সিডিউল ({localSettings.shifts.length})</span>
+            </button>
 
-        {/* Real-time Running Shift Banner */}
-        <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-5 py-2.5 flex flex-wrap items-center justify-between text-xs gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-            <span className="font-bold text-slate-700 dark:text-slate-200">
-              বর্তমানে চলমান শিফট:
-            </span>
-            <span className="px-2.5 py-0.5 rounded-lg bg-emerald-600 text-white font-extrabold shadow-xs">
-              {currentActive.nameBangla} ({formatTimeInBangla(currentActive.startTime)} - {formatTimeInBangla(currentActive.endTime)})
-            </span>
+            <button
+              onClick={() => { setActiveTab('geofence'); setIsEditingShift(false); }}
+              className={`pb-2.5 px-3 font-bold text-xs flex items-center space-x-2 border-b-2 whitespace-nowrap transition cursor-pointer ${
+                activeTab === 'geofence'
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <MapPin className="w-4 h-4" />
+              <span>জিও-লোকেশন ও জোন (GPS)</span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('rules'); setIsEditingShift(false); }}
+              className={`pb-2.5 px-3 font-bold text-xs flex items-center space-x-2 border-b-2 whitespace-nowrap transition cursor-pointer ${
+                activeTab === 'rules'
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>ওভারটাইম ও অতিরিক্ত নিয়মাবলী</span>
+            </button>
           </div>
-
-          <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400 text-[11px]">
-            <span>ডিউটি: <strong>{currentActive.dutyDurationHours} ঘণ্টা</strong></span>
-            <span>&bull;</span>
-            <span>গ্রেস: <strong>{currentActive.gracePeriodMinutes} মিনিট</strong></span>
-          </div>
         </div>
 
-        {/* Tabs Bar */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-5 shrink-0 gap-2 pt-2">
-          <button
-            onClick={() => { setActiveTab('shifts'); setIsEditingShift(false); }}
-            className={`pb-2.5 px-3 font-bold text-xs flex items-center space-x-2 border-b-2 transition cursor-pointer ${
-              activeTab === 'shifts'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>শিফট ও ডিউটি সিডিউল ({localSettings.shifts.length})</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('geofence'); setIsEditingShift(false); }}
-            className={`pb-2.5 px-3 font-bold text-xs flex items-center space-x-2 border-b-2 transition cursor-pointer ${
-              activeTab === 'geofence'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <MapPin className="w-4 h-4" />
-            <span>জিও-লোকেশন ও জোন (GPS)</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('rules'); setIsEditingShift(false); }}
-            className={`pb-2.5 px-3 font-bold text-xs flex items-center space-x-2 border-b-2 transition cursor-pointer ${
-              activeTab === 'rules'
-                ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>ওভারটাইম ও অতিরিক্ত নিয়মাবলী</span>
-          </button>
-        </div>
-
-        {/* Modal Scroll Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+        {/* Modal Body Content (Fully scrollable with entire dialog) */}
+        <div className="p-4 sm:p-6 space-y-6">
 
           {/* Toast feedback */}
           {toastMessage && (
@@ -490,18 +506,10 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
                               setEditingShiftData({ ...shift });
                               setIsEditingShift(true);
                             }}
-                            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer transition"
+                            className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-400 rounded-xl text-xs font-extrabold flex items-center space-x-1.5 cursor-pointer transition border border-slate-200 dark:border-slate-700 hover:border-emerald-400"
                           >
-                            <Edit3 className="w-3.5 h-3.5 text-emerald-500" />
+                            <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
                             <span>এডিট করুন</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteShift(shift.id)}
-                            className="p-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 rounded-lg text-xs transition cursor-pointer"
-                            title="শিফট মুছুন"
-                          >
-                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -520,7 +528,7 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
                     </h4>
                     <button
                       onClick={() => setIsEditingShift(false)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -662,22 +670,65 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
                   </div>
 
                   {/* Editor Buttons */}
-                  <div className="flex items-center justify-end space-x-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingShift(false)}
-                      className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer"
-                    >
-                      বাতিল
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveShift}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center space-x-1.5"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>শিফট আপডেট করুন</span>
-                    </button>
+                  <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <div>
+                      {localSettings.shifts.some(s => s.id === editingShiftData.id) && (
+                        confirmDeleteShift ? (
+                          <div className="flex items-center space-x-2 bg-rose-100 dark:bg-rose-950/60 p-1.5 px-3 rounded-xl border border-rose-300 dark:border-rose-800">
+                            <span className="text-xs font-extrabold text-rose-900 dark:text-rose-200">সত্যিই মুছে ফেলতে চান?</span>
+                            <button
+                              type="button"
+                              onClick={() => executeDeleteShift(editingShiftData.id)}
+                              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-lg shadow-sm cursor-pointer transition flex items-center space-x-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>হ্যাঁ, মুছুন</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteShift(false)}
+                              className="px-2.5 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-lg cursor-pointer transition"
+                            >
+                              না
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (localSettings.shifts.length <= 1) {
+                                showToast('সিস্টেমে কমপক্ষে ১টি শিফট সক্রিয় থাকতে হবে!');
+                                return;
+                              }
+                              setConfirmDeleteShift(true);
+                            }}
+                            className="w-full sm:w-auto px-3.5 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 border border-rose-300 dark:border-rose-800 transition cursor-pointer shadow-xs"
+                            title="শিফট মুছে ফেলুন"
+                          >
+                            <Trash2 className="w-4 h-4 text-rose-600" />
+                            <span>শিফট মুছে ফেলুন</span>
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => { setIsEditingShift(false); setEditingShiftData(null); setConfirmDeleteShift(false); }}
+                        className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold cursor-pointer hover:bg-slate-300 transition"
+                      >
+                        বাতিল
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveShift}
+                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center space-x-1.5 transition"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>শিফট আপডেট করুন</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1030,16 +1081,8 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
 
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <button
-            onClick={() => setLocalSettings(DEFAULT_SCHEDULE_SETTINGS)}
-            className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl flex items-center space-x-1.5 transition cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>ডিফল্ট রিসেট</span>
-          </button>
-
+        {/* Footer Actions (Sticky Bottom) */}
+        <div className="sticky bottom-0 z-20 p-4 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-end rounded-b-2xl sm:rounded-b-3xl shadow-md">
           <div className="flex items-center space-x-2">
             <button
               onClick={onClose}
@@ -1050,7 +1093,7 @@ export const ScheduleSettingsModal: React.FC<ScheduleSettingsModalProps> = ({
 
             <button
               onClick={handleFinalSaveAll}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center space-x-1.5 shadow-lg shadow-emerald-600/30 cursor-pointer transition active:scale-95"
+              className="px-5 sm:px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center space-x-1.5 shadow-lg shadow-emerald-600/30 cursor-pointer transition active:scale-95"
             >
               <Save className="w-4 h-4" />
               <span>সেটিংস ও শিফট সংরক্ষণ করুন</span>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Student, AttendanceRecord } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { Camera, GraduationCap, Calendar, CheckCircle2, AlertTriangle, Flame, Clock, Award, CheckCircle, UserCheck } from 'lucide-react';
+import { Camera, GraduationCap, Calendar, CheckCircle2, AlertTriangle, Flame, Clock, Award, CheckCircle, UserCheck, Layers } from 'lucide-react';
 
 interface StudentDashboardProps {
   students: Student[];
@@ -179,6 +179,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <thead>
               <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold">
                 <th className="p-3.5 pl-5">তারিখ</th>
+                <th className="p-3.5">শিফট</th>
                 <th className="p-3.5">সময়</th>
                 <th className="p-3.5">{terminology.sessionLabel}</th>
                 <th className="p-3.5">পদ্ধতি</th>
@@ -189,7 +190,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <tbody className="divide-y divide-slate-100">
               {studentRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
                     কোন রেকর্ড পাওয়া যায়নি।
                   </td>
                 </tr>
@@ -197,6 +198,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 studentRecords.map((r) => (
                   <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-3.5 pl-5 font-bold text-slate-800 font-mono">{r.date}</td>
+                    <td className="p-3.5">
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <Layers className="w-3 h-3 text-emerald-600" />
+                        <span>{r.shiftName || 'সাধারণ শিফট'}</span>
+                      </span>
+                    </td>
                     <td className="p-3.5 text-slate-600 font-mono">{r.time}</td>
                     <td className="p-3.5 font-semibold text-slate-800">{r.className}</td>
                     <td className="p-3.5">

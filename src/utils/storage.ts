@@ -1,6 +1,7 @@
 import { Student, ClassSubject, AttendanceRecord, AttendanceStatus, AttendanceMethod, DailyClassSummary, AttendancePunch } from '../types';
 import { INITIAL_CLASSES, INITIAL_STUDENTS, generateInitialAttendanceRecords } from '../data/mockData';
 import { calculateStayDuration } from './timeUtils';
+import { getStoredScheduleSettings, getCurrentActiveShift } from './scheduleConfig';
 
 const KEYS = {
   CLASSES: 'smart_hazira_classes_v2',
@@ -59,6 +60,14 @@ export const saveAttendanceRecord = (record: Omit<AttendanceRecord, 'id'>): Atte
   const records = getStoredAttendance();
   const id = `att-${record.studentId}-${record.date}-${Date.now()}`;
   
+  // Auto-detect current active shift if not explicitly provided
+  const scheduleSettings = getStoredScheduleSettings();
+  const activeShift = getCurrentActiveShift(scheduleSettings, new Date());
+  const shiftName = record.shiftName || activeShift?.nameBangla || 'সাধারণ ডে শিফট';
+  const shiftId = record.shiftId || activeShift?.id || 'shift-day';
+  const shiftCode = record.shiftCode || activeShift?.code || 'DAY';
+  const shiftTiming = record.shiftTiming || (activeShift ? `${activeShift.startTime} - ${activeShift.endTime}` : '09:00 - 17:00');
+
   // Check if a record already exists for this student on this date
   const existingIndex = records.findIndex(r => r.studentId === record.studentId && r.date === record.date);
   
@@ -98,6 +107,10 @@ export const saveAttendanceRecord = (record: Omit<AttendanceRecord, 'id'>): Atte
       ...existing,
       ...record,
       id: existing.id,
+      shiftId: record.shiftId || existing.shiftId || shiftId,
+      shiftName: record.shiftName || existing.shiftName || shiftName,
+      shiftCode: record.shiftCode || existing.shiftCode || shiftCode,
+      shiftTiming: record.shiftTiming || existing.shiftTiming || shiftTiming,
       entryTime: entryTime,
       exitTime: exitTime,
       totalDuration: durationText || '০ মিনিট',
@@ -132,6 +145,10 @@ export const saveAttendanceRecord = (record: Omit<AttendanceRecord, 'id'>): Atte
     newRecord = {
       ...record,
       id,
+      shiftId,
+      shiftName,
+      shiftCode,
+      shiftTiming,
       entryTime: entryTime,
       exitTime: exitTime,
       totalDuration: exitTime ? durationText : 'অবস্থানরত',
@@ -228,6 +245,10 @@ export const updateAttendanceHistoryRecord = (
     status: AttendanceStatus;
     method?: AttendanceMethod;
     notes?: string;
+    shiftId?: string;
+    shiftName?: string;
+    shiftCode?: string;
+    shiftTiming?: string;
   }
 ): AttendanceRecord => {
   const records = getStoredAttendance();
@@ -237,12 +258,24 @@ export const updateAttendanceHistoryRecord = (
   const exitTime = updatedData.exitTime || '';
   const { durationText, totalMinutes } = calculateStayDuration(entryTime, exitTime);
 
+  // Auto-detect shift if not specified
+  const scheduleSettings = getStoredScheduleSettings();
+  const activeShift = getCurrentActiveShift(scheduleSettings, new Date());
+  const fallbackShiftName = activeShift?.nameBangla || 'সাধারণ ডে শিফট';
+  const fallbackShiftId = activeShift?.id || 'shift-day';
+  const fallbackShiftCode = activeShift?.code || 'DAY';
+  const fallbackShiftTiming = activeShift ? `${activeShift.startTime} - ${activeShift.endTime}` : '09:00 - 17:00';
+
   let newOrUpdatedRecord: AttendanceRecord;
 
   if (existingIndex >= 0) {
     const existing = records[existingIndex];
     newOrUpdatedRecord = {
       ...existing,
+      shiftId: updatedData.shiftId || existing.shiftId || fallbackShiftId,
+      shiftName: updatedData.shiftName || existing.shiftName || fallbackShiftName,
+      shiftCode: updatedData.shiftCode || existing.shiftCode || fallbackShiftCode,
+      shiftTiming: updatedData.shiftTiming || existing.shiftTiming || fallbackShiftTiming,
       entryTime: entryTime,
       exitTime: exitTime,
       time: exitTime || entryTime || existing.time || '10:00 AM',
@@ -263,6 +296,10 @@ export const updateAttendanceHistoryRecord = (
       classId: student.classId,
       className: student.className,
       date: date,
+      shiftId: updatedData.shiftId || fallbackShiftId,
+      shiftName: updatedData.shiftName || fallbackShiftName,
+      shiftCode: updatedData.shiftCode || fallbackShiftCode,
+      shiftTiming: updatedData.shiftTiming || fallbackShiftTiming,
       time: entryTime || exitTime || '10:00 AM',
       entryTime: entryTime,
       exitTime: exitTime,
@@ -282,15 +319,17 @@ export const updateAttendanceHistoryRecord = (
 };
 
 export const exportAttendanceCSV = (records: AttendanceRecord[], fileName = 'attendance_report.csv') => {
-  const headers = ['তারিখ (Date)', 'সময় (Time)', 'শিক্ষার্থীর নাম (Name)', 'রোল (Roll)', 'শ্রেণী (Class)', 'উপস্থিতি স্ট্যাটাস (Status)', 'পদ্ধতি (Method)'];
+  const headers = ['তারিখ (Date)', 'সময় (Time)', 'শিফট (Shift)', 'শিক্ষার্থীর নাম (Name)', 'রোল (Roll)', 'পদবী/বিভাগ (Designation)', 'উপস্থিতি স্ট্যাটাস (Status)', 'পদ্ধতি (Method)', 'মন্তব্য (Notes)'];
   const rows = records.map(r => [
     r.date,
     r.time,
+    r.shiftName || 'সাধারণ শিফট',
     r.studentName,
     r.roll,
     r.className,
     r.status === 'Present' ? 'উপস্থিত (Present)' : r.status === 'Late' ? 'বিলম্ব (Late)' : 'অনুপস্থিত (Absent)',
-    r.method
+    r.method,
+    r.notes || ''
   ]);
 
   const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' 

@@ -3,6 +3,7 @@ import { Student, ClassSubject, AttendanceRecord, AttendanceStatus } from '../ty
 import { exportAttendanceCSV, saveAttendanceRecord } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { isFaceActuallyRegistered, isFingerprintActuallyRegistered } from '../utils/faceMatching';
+import { getStoredScheduleSettings, getCurrentActiveShift } from '../utils/scheduleConfig';
 import { AttendanceDetailsModal } from './AttendanceDetailsModal';
 import { EditAttendanceHistoryModal } from './EditAttendanceHistoryModal';
 import { parseTimeToMinutes } from '../utils/timeUtils';
@@ -35,7 +36,11 @@ import {
   LogOut,
   Timer,
   Info,
-  Eye
+  Eye,
+  Sun,
+  Moon,
+  Sunrise,
+  Sunset
 } from 'lucide-react';
 
 interface TeacherDashboardProps {
@@ -122,6 +127,37 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
   const classStudents = students.filter(s => s.classId === selectedClassId);
+
+  const scheduleSettings = getStoredScheduleSettings();
+  const currentActiveShift = getCurrentActiveShift(scheduleSettings, new Date());
+
+  const getShiftBadgeStyle = (code?: string, name?: string) => {
+    const text = ((code || '') + ' ' + (name || '')).toLowerCase();
+    if (text.includes('morning') || text.includes('মর্নিং') || text.includes('সকাল')) {
+      return 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700';
+    }
+    if (text.includes('night') || text.includes('নাইট') || text.includes('রাত')) {
+      return 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700';
+    }
+    if (text.includes('evening') || text.includes('ইভনিং') || text.includes('সন্ধ্যা')) {
+      return 'bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700';
+    }
+    return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700';
+  };
+
+  const getShiftIcon = (code?: string, name?: string) => {
+    const text = ((code || '') + ' ' + (name || '')).toLowerCase();
+    if (text.includes('morning') || text.includes('মর্নিং') || text.includes('সকাল')) {
+      return <Sunrise className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />;
+    }
+    if (text.includes('night') || text.includes('নাইট') || text.includes('রাত')) {
+      return <Moon className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />;
+    }
+    if (text.includes('evening') || text.includes('ইভনিং') || text.includes('সন্ধ্যা')) {
+      return <Sunset className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />;
+    }
+    return <Sun className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+  };
 
   // Map students with their attendance record for the selected date
   // Sort so that the latest entry/punch appears at the very top of the table
@@ -291,11 +327,12 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
         {/* Member List Table */}
         <div className="overflow-x-auto w-full">
-          <table className="w-full min-w-[760px] text-left border-collapse text-xs">
+          <table className="w-full min-w-[880px] text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold">
                 <th className="p-3 pl-4 whitespace-nowrap min-w-[220px]">প্রোফাইল ফটো ও নাম</th>
-                <th className="p-3 whitespace-nowrap min-w-[120px]">পদবী</th>
+                <th className="p-3 whitespace-nowrap min-w-[110px]">পদবী</th>
+                <th className="p-3 whitespace-nowrap min-w-[140px]">শিফট</th>
                 <th className="p-3 whitespace-nowrap min-w-[130px]">প্রবেশ করার সময়</th>
                 <th className="p-3 whitespace-nowrap min-w-[140px]">বাহির হওয়ার সময়</th>
                 <th className="p-3 text-center whitespace-nowrap min-w-[150px]">স্ট্যাটাস</th>
@@ -305,7 +342,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center space-y-2.5 max-w-sm mx-auto">
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
                         <UserPlus className="w-5 h-5" />
@@ -368,7 +405,36 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </span>
                     </td>
 
-                    {/* 3. Entry Time (প্রবেশ করার সময়) */}
+                    {/* 3. Shift (শিফট - স্ক্যান বা অটো ডিটেক্ট) */}
+                    <td className="p-3 whitespace-nowrap">
+                      {record?.shiftName ? (
+                        <div className="inline-flex flex-col">
+                          <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border shadow-2xs ${getShiftBadgeStyle(record.shiftCode, record.shiftName)}`}>
+                            {getShiftIcon(record.shiftCode, record.shiftName)}
+                            <span>{record.shiftName}</span>
+                          </span>
+                          {record.shiftTiming && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 pl-0.5">
+                              {record.shiftTiming}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="inline-flex flex-col">
+                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 text-[11px] font-medium border border-slate-200 dark:border-slate-700">
+                            <Layers className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{currentActiveShift?.nameBangla || 'সাধারণ ডে শিফট'}</span>
+                          </span>
+                          {currentActiveShift && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 pl-0.5">
+                              {currentActiveShift.startTime} - {currentActiveShift.endTime}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* 4. Entry Time (প্রবেশ করার সময়) */}
                     <td className="p-3 whitespace-nowrap">
                       {record && (record.entryTime || record.time) ? (
                         <div className="inline-flex items-center space-x-1 font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs">
@@ -380,7 +446,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       )}
                     </td>
 
-                    {/* 4. Exit Time (বাহির হওয়ার সময়) */}
+                    {/* 5. Exit Time (বাহির হওয়ার সময়) */}
                     <td className="p-3 whitespace-nowrap">
                       {record?.exitTime ? (
                         <div className="inline-flex items-center space-x-1 font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800 text-xs">
@@ -397,7 +463,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       )}
                     </td>
 
-                    {/* 5. Status Dropdown (স্ট্যাটাস ড্রপ ডাউন) */}
+                    {/* 6. Status Dropdown (স্ট্যাটাস ড্রপ ডাউন) */}
                     <td className="p-3 text-center whitespace-nowrap">
                       <div 
                         className="inline-block"
@@ -425,7 +491,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </div>
                     </td>
 
-                    {/* 6. Edit Attendance History Button (হিস্টোরি এডিট) */}
+                    {/* 7. Edit Attendance History Button (হিস্টোরি এডিট) */}
                     <td className="p-3 text-right pr-4 whitespace-nowrap">
                       <div className="flex items-center justify-end space-x-1.5">
                         <button

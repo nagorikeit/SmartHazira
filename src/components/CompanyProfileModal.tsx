@@ -273,12 +273,27 @@ export const CompanyProfileModal: React.FC<CompanyProfileModalProps> = ({
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {onOpenScheduleSettings && (
+                <button
+                  onClick={() => { onOpenScheduleSettings(); onClose(); }}
+                  className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/30 rounded-2xl border border-emerald-500/30 flex items-center space-x-3 text-left transition cursor-pointer"
+                >
+                  <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-xs">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">সিডিউল, শিফট ও জিওফেন্স</p>
+                    <p className="text-[10px] text-slate-500">২৪ ঘণ্টা শিফট ও GPS লোকেশন কোড</p>
+                  </div>
+                </button>
+              )}
+
               {onOpenOrgSelector && (
                 <button
                   onClick={() => { onOpenOrgSelector(); onClose(); }}
                   className="p-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center space-x-3 text-left transition cursor-pointer"
                 >
-                  <div className="p-2 bg-emerald-500/20 text-emerald-600 rounded-xl">
+                  <div className="p-2 bg-teal-500/20 text-teal-600 rounded-xl">
                     <Sliders className="w-4 h-4" />
                   </div>
                   <div>
