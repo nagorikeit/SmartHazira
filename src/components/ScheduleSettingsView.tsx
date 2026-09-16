@@ -54,18 +54,13 @@ export const ScheduleSettingsView: React.FC<ScheduleSettingsViewProps> = ({
   orgInfo,
   onBackToDashboard,
 }) => {
-  const [activeTab, setActiveTab] = useState<'shifts' | 'geofence' | 'rules'>('shifts');
+  const [activeTab, setActiveTab] = useState<'shifts' | 'rules'>('shifts');
   const [localSettings, setLocalSettings] = useState<OrganizationScheduleSettings>(settings);
   
   // Shift Editor Form state
   const [isEditingShift, setIsEditingShift] = useState<boolean>(false);
   const [editingShiftData, setEditingShiftData] = useState<WorkShift | null>(null);
   const [confirmDeleteShift, setConfirmDeleteShift] = useState<boolean>(false);
-
-  // GPS Auto-detect state
-  const [isLocating, setIsLocating] = useState<boolean>(false);
-  const [gpsError, setGpsError] = useState<string | null>(null);
-  const [currentGpsCoords, setCurrentGpsCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,44 +70,6 @@ export const ScheduleSettingsView: React.FC<ScheduleSettingsViewProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
-  };
-
-  const handleCaptureCurrentGps = () => {
-    setIsLocating(true);
-    setGpsError(null);
-
-    if (!('geolocation' in navigator)) {
-      setGpsError('আপনার ব্রাউজারে জিও-লোকেশন সাপোর্ট নেই।');
-      setIsLocating(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = parseFloat(pos.coords.latitude.toFixed(6));
-        const lng = parseFloat(pos.coords.longitude.toFixed(6));
-        const accuracy = Math.round(pos.coords.accuracy || 10);
-
-        setCurrentGpsCoords({ lat, lng, accuracy });
-        setLocalSettings(prev => ({
-          ...prev,
-          geofence: {
-            ...prev.geofence,
-            latitude: lat,
-            longitude: lng,
-          }
-        }));
-
-        setIsLocating(false);
-        showToast(`সফলভাবে বর্তমান GPS লোকেশন ক্যাপচার করা হয়েছে (Lat: ${lat}, Lng: ${lng})`);
-      },
-      (err) => {
-        console.warn('Geolocation capture error:', err);
-        setGpsError('GPS লোকেশন এক্সেস পাওয়া যায়নি। অনুগ্রহ করে ব্রাউজারে লোকেশন পারমিশন দিন বা ম্যানুয়ালি কোঅর্ডিনেট লিখুন।');
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
   };
 
   const handleApplyPresetTemplate = (templateId: string) => {
@@ -333,18 +290,6 @@ export const ScheduleSettingsView: React.FC<ScheduleSettingsViewProps> = ({
         >
           <Clock className="w-4 h-4" />
           <span>শিফট ও ডিউটি সিডিউল ({localSettings.shifts.length})</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveTab('geofence'); setIsEditingShift(false); }}
-          className={`flex-1 min-w-[160px] py-2.5 px-4 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition cursor-pointer ${
-            activeTab === 'geofence'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>জিও-লোকেশন ও জোন (GPS)</span>
         </button>
 
         <button
@@ -733,248 +678,27 @@ export const ScheduleSettingsView: React.FC<ScheduleSettingsViewProps> = ({
               ))}
             </div>
 
-          </div>
-        )}
-
-        {/* ----------------- TAB 2: GEOFENCE & GPS SETTINGS ----------------- */}
-        {activeTab === 'geofence' && (
-          <div className="space-y-6">
-
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-5">
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-4 gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2.5 bg-teal-50 text-teal-700 rounded-2xl">
-                    <MapPin className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-sm sm:text-base text-slate-900">
-                      অফিস / ক্যাম্পাস পরিধি GPS জিওফেন্স কনফিগারেশন
-                    </h3>
-                    <p className="text-xs text-slate-600 font-medium">
-                      কর্মীরা শুধুমাত্র নির্ধারিত ভৌগোলিক সীমানার ভিতরে সেলফি হাজিরা দিতে পারবেন।
-                    </p>
-                  </div>
+            {/* Helpful Notice about GPS Geofencing being in GPS Module */}
+            <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/20 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs shrink-0">
+                  <MapPin className="w-4 h-4" />
                 </div>
-
-                {/* Enable Geofencing Master Toggle */}
-                <div className="flex items-center space-x-2 bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 self-start sm:self-auto">
-                  <input
-                    type="checkbox"
-                    id="geoEnableCheck"
-                    checked={localSettings.geofence.enabled}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, enabled: e.target.checked }
-                    }))}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <label htmlFor="geoEnableCheck" className="font-extrabold text-xs text-slate-900 cursor-pointer">
-                    GPS জিওফেন্স বাধ্যতামূলক করুন
-                  </label>
-                </div>
-              </div>
-
-              {/* Live Location Capture Tool */}
-              <div className="bg-teal-50/70 border border-teal-200 rounded-2xl p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <p className="font-extrabold text-xs text-teal-950 flex items-center gap-1.5">
-                      <Compass className="w-4 h-4 text-teal-600 animate-spin" />
-                      বর্তমান অবস্থান থেকে স্বয়ংক্রিয় GPS কোঅর্ডিনেট নির্ধারণ করুন
-                    </p>
-                    <p className="text-[11px] text-slate-700 font-medium">
-                      আপনি যদি বর্তমানে অফিসে অবস্থান করেন, তবে নিচের বাটনে ট্যাপ করলে রিয়েল-টাইম ল্যাটিটিউড ও লঙ্গিটিউড সেট হবে।
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={handleCaptureCurrentGps}
-                    disabled={isLocating}
-                    className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl flex items-center space-x-1.5 shadow-md transition cursor-pointer shrink-0"
-                  >
-                    {isLocating ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>লোকেশন খোঁজা হচ্ছে...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>আমার বর্তমান GPS লোকেশন নিন</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {gpsError && (
-                  <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center space-x-2 font-bold">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{gpsError}</span>
-                  </div>
-                )}
-
-                {currentGpsCoords && (
-                  <div className="p-2.5 bg-white rounded-xl text-xs text-slate-900 flex items-center justify-between border border-teal-300 shadow-xs">
-                    <span>শনাক্তকৃত কোঅর্ডিনেট: <strong>{currentGpsCoords.lat}, {currentGpsCoords.lng}</strong></span>
-                    <span className="text-[10px] text-teal-700 font-mono font-bold">নির্ভুলতা: ±{currentGpsCoords.accuracy} মিটার</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Coordinates Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                 <div>
-                  <label className="block font-extrabold text-slate-900 mb-1.5">
-                    অফিস লোকেশন নাম (স্থান)
-                  </label>
-                  <input
-                    type="text"
-                    value={localSettings.geofence.name}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, name: e.target.value }
-                    }))}
-                    placeholder="যেমন: প্রধান কার্যালয়, বনানী"
-                    className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-slate-900 font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-extrabold text-slate-900 mb-1.5">
-                    ল্যাটিটিউড (Latitude) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={localSettings.geofence.latitude}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, latitude: parseFloat(e.target.value) || 0 }
-                    }))}
-                    placeholder="23.792500"
-                    className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-slate-900 font-mono font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-hidden"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-extrabold text-slate-900 mb-1.5">
-                    লঙ্গিটিউড (Longitude) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={localSettings.geofence.longitude}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, longitude: parseFloat(e.target.value) || 0 }
-                    }))}
-                    placeholder="90.407800"
-                    className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-slate-900 font-mono font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-hidden"
-                  />
-                </div>
-              </div>
-
-              {/* Radius Slider & Wi-Fi SSID */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="font-extrabold text-slate-900">
-                      অনুমোদিত ব্যাসার্ধ (Radius / মিটার):
-                    </label>
-                    <span className="font-mono font-black text-emerald-700 text-sm">
-                      {localSettings.geofence.radiusMeters} মিটার
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={20}
-                    max={1000}
-                    step={10}
-                    value={localSettings.geofence.radiusMeters}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, radiusMeters: parseInt(e.target.value) }
-                    }))}
-                    className="w-full h-2 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                  />
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    টিপস: সাধারণত অফিস বা ভবনের জন্য ৫০ থেকে ২০০ মিটার ব্যাসার্ধ সবচেয়ে উপযোগী।
+                  <p className="font-extrabold text-slate-900 dark:text-white">
+                    অফিস পরিধি সীমানা ও GPS লোকেশন কনফিগারেশন
                   </p>
-                </div>
-
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                  <label className="font-extrabold text-slate-900 flex items-center space-x-1.5">
-                    <Wifi className="w-4 h-4 text-cyan-600" />
-                    <span>অফিস Wi-Fi নেটওয়ার্ক রেস্ট্রিকশন (ঐচ্ছিক)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={localSettings.geofence.wifiSSID || ''}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, wifiSSID: e.target.value }
-                    }))}
-                    placeholder="যেমন: Office_5G_Corporate"
-                    className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-slate-900 font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20 focus:outline-hidden"
-                  />
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    নির্দিষ্ট অফিস ওয়াই-ফাইতে কানেক্টেড থাকলে লোকেশন দ্রুত ভেরিফাই হবে।
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                    অফিসের ভৌগোলিক অবস্থান, ল্যাটিটিউড/লঙ্গিটিউড ও পরিধি ব্যাসার্ধ সেটিংস আলাদা 'GPS ও জিওফেন্সিং' মডিউলে সংরক্ষিত রয়েছে।
                   </p>
                 </div>
               </div>
-
-              {/* Strict & Mock GPS Protection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="flex items-start space-x-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
-                  <input
-                    type="checkbox"
-                    id="strictGeofenceCheck"
-                    checked={localSettings.geofence.strictMode}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, strictMode: e.target.checked }
-                    }))}
-                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <div>
-                    <label htmlFor="strictGeofenceCheck" className="font-extrabold text-xs text-slate-900 cursor-pointer">
-                      কড়া জিওফেন্স এনফোর্সমেন্ট (Strict Mode)
-                    </label>
-                    <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      পরিধির বাইরে থাকলে কোনোভাবেই হাজিরা সাবমিট হবে না।
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
-                  <input
-                    type="checkbox"
-                    id="blockMockGpsCheck"
-                    checked={localSettings.geofence.blockMockLocations}
-                    onChange={(e) => setLocalSettings(prev => ({
-                      ...prev,
-                      geofence: { ...prev.geofence, blockMockLocations: e.target.checked }
-                    }))}
-                    className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                  />
-                  <div>
-                    <label htmlFor="blockMockGpsCheck" className="font-extrabold text-xs text-slate-900 cursor-pointer">
-                      ফেক / মক জিপিএস অ্যাপ ব্লক করুন
-                    </label>
-                    <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                      মোবাইলে ফেক জিপিএস লোকেশন স্পুফিং স্বয়ংক্রিয়ভাবে ব্লক করবে।
-                    </p>
-                  </div>
-                </div>
-              </div>
-
             </div>
 
           </div>
         )}
 
-        {/* ----------------- TAB 3: RULES & OVERTIME ----------------- */}
+        {/* ----------------- TAB 2: RULES & OVERTIME ----------------- */}
         {activeTab === 'rules' && (
           <div className="space-y-6">
 

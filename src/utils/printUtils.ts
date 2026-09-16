@@ -113,7 +113,7 @@ export function generateSingleIdCardHtml(
   categoryName: string = 'প্রতিষ্ঠান'
 ): string {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(student.id || student.roll)}`;
-  const photo = student.faceImage || student.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
+  const photo = student.photoUrl || student.faceImage || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
   const phone = student.guardianPhone || student.parentPhone || '01700-000000';
 
   return `
@@ -458,7 +458,7 @@ export function generateBatchIdCardsHtml(
 ): string {
   const cardsHtml = students.map((student) => {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(student.id || student.roll)}`;
-    const photo = student.faceImage || student.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
+    const photo = student.photoUrl || student.faceImage || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
 
     return `
     <div class="id-card">

@@ -4,7 +4,8 @@ import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { User } from 'firebase/auth';
 import { 
   Camera, 
-  Menu
+  Menu,
+  LogOut
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -25,6 +26,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   orgInfo,
   onOpenNavigationMenu,
+  onGoogleSignOut,
   isFirebaseConnected = true,
 }) => {
 
@@ -65,16 +67,27 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Clean Menu Icon on the Right */}
-          <div className="flex items-center shrink-0">
+          {/* Clean Action Icons on the Right */}
+          <div className="flex items-center space-x-2 shrink-0">
             {onOpenNavigationMenu && (
               <button
                 onClick={onOpenNavigationMenu}
-                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-400 hover:text-white border border-slate-700/80 hover:border-emerald-500/40 transition cursor-pointer flex items-center space-x-2 shadow-sm"
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-400 hover:text-white border border-slate-700/80 hover:border-emerald-500/40 transition cursor-pointer flex items-center space-x-1.5 shadow-sm"
                 title="মেইন মেনু - সকল মডিউল, শিফট, অডিট ও সেটিংস"
               >
                 <Menu className="w-5 h-5 text-emerald-400" />
                 <span className="hidden sm:inline font-bold text-xs">মেনু</span>
+              </button>
+            )}
+
+            {onGoogleSignOut && (
+              <button
+                onClick={onGoogleSignOut}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 active:scale-95 text-red-300 hover:text-white border border-red-800/80 hover:border-red-600 transition cursor-pointer flex items-center space-x-1.5 shadow-sm"
+                title="লগআউট / প্রস্থান করুন"
+              >
+                <LogOut className="w-4 h-4 text-red-400" />
+                <span className="hidden sm:inline font-bold text-xs">লগআউট</span>
               </button>
             )}
           </div>

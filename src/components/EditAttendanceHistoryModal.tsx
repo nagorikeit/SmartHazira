@@ -10,11 +10,13 @@ import {
   ShieldCheck, 
   Save, 
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Layers
 } from 'lucide-react';
 import { Student, AttendanceRecord, AttendanceStatus, AttendanceMethod } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { updateAttendanceHistoryRecord, getStoredAttendance } from '../utils/storage';
+import { getStoredScheduleSettings, getCurrentActiveShift } from '../utils/scheduleConfig';
 
 interface EditAttendanceHistoryModalProps {
   isOpen: boolean;
@@ -41,7 +43,12 @@ export const EditAttendanceHistoryModal: React.FC<EditAttendanceHistoryModalProp
   const [exitTime, setExitTime] = useState<string>('');
   const [method, setMethod] = useState<AttendanceMethod>('Manual');
   const [notes, setNotes] = useState<string>('');
+  const [shiftId, setShiftId] = useState<string>('shift-day');
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+  const scheduleSettings = getStoredScheduleSettings();
+  const activeShiftNow = getCurrentActiveShift(scheduleSettings, new Date());
+  const shiftsList = scheduleSettings.shifts || [];
 
   // Sync state when modal opens or date/student/record changes
   useEffect(() => {
@@ -60,12 +67,14 @@ export const EditAttendanceHistoryModal: React.FC<EditAttendanceHistoryModalProp
         setExitTime(existing.exitTime || '');
         setMethod(existing.method || 'Manual');
         setNotes(existing.notes || '');
+        setShiftId(existing.shiftId || activeShiftNow?.id || 'shift-day');
       } else {
         setStatus('Present');
         setEntryTime('09:00 AM');
         setExitTime('');
         setMethod('Manual');
         setNotes('অ্যাডমিন কর্তৃক সংরক্ষিত হাজিরা');
+        setShiftId(activeShiftNow?.id || 'shift-day');
       }
       setSaveSuccess(false);
     }
@@ -83,12 +92,14 @@ export const EditAttendanceHistoryModal: React.FC<EditAttendanceHistoryModalProp
       setExitTime(existing.exitTime || '');
       setMethod(existing.method || 'Manual');
       setNotes(existing.notes || '');
+      setShiftId(existing.shiftId || activeShiftNow?.id || 'shift-day');
     } else {
       setStatus('Present');
       setEntryTime('09:00 AM');
       setExitTime('');
       setMethod('Manual');
       setNotes('');
+      setShiftId(activeShiftNow?.id || 'shift-day');
     }
   };
 
@@ -96,12 +107,18 @@ export const EditAttendanceHistoryModal: React.FC<EditAttendanceHistoryModalProp
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const selectedShiftObj = shiftsList.find(s => s.id === shiftId) || activeShiftNow;
+
     const updated = updateAttendanceHistoryRecord(student, recordDate, {
       entryTime: entryTime.trim() || undefined,
       exitTime: exitTime.trim() || undefined,
       status: status,
       method: method,
       notes: notes.trim() || undefined,
+      shiftId: selectedShiftObj?.id || shiftId,
+      shiftName: selectedShiftObj?.nameBangla || 'সাধারণ ডে শিফট',
+      shiftCode: selectedShiftObj?.code || 'DAY',
+      shiftTiming: selectedShiftObj ? `${selectedShiftObj.startTime} - ${selectedShiftObj.endTime}` : '09:00 - 17:00'
     });
 
     onAttendanceUpdated(updated);
@@ -182,6 +199,25 @@ export const EditAttendanceHistoryModal: React.FC<EditAttendanceHistoryModalProp
               required
               className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
             />
+          </div>
+
+          {/* Shift Selection */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+              <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>শিফট নির্ধারণ (Work Shift):</span>
+            </label>
+            <select
+              value={shiftId}
+              onChange={e => setShiftId(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+            >
+              {shiftsList.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.nameBangla} ({s.startTime} - {s.endTime})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* 2. Status Dropdown */}

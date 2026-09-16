@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Student, AttendanceRecord, CameraScanResult } from '../types';
+import { Student, AttendanceRecord, CameraScanResult, OrganizationScheduleSettings, GeofenceSettings } from '../types';
 import {
   compareFaceWithStudent,
   identifyStudentFromCamera,
@@ -8,6 +8,7 @@ import {
   isFaceActuallyRegistered
 } from '../utils/faceMatching';
 import { saveAttendanceRecord, getStoredAttendance } from '../utils/storage';
+import { getStoredScheduleSettings, getCurrentActiveShift, calculateDistanceMeters } from '../utils/scheduleConfig';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import {
   analyzeVideoFrameForFace,
@@ -27,7 +28,16 @@ import {
   Clock,
   ShieldCheck,
   AlertCircle,
-  Info
+  Info,
+  Layers,
+  MapPin,
+  Radio,
+  Compass,
+  Lock,
+  Unlock,
+  RefreshCw,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 
 interface FaceScannerModalProps {
@@ -39,6 +49,8 @@ interface FaceScannerModalProps {
   onAttendanceUpdated: (newRecord: AttendanceRecord) => void;
   soundEnabled: boolean;
   orgInfo: OrgCategoryInfo;
+  scheduleSettings?: OrganizationScheduleSettings;
+  onOpenGeofenceModal?: () => void;
 }
 
 // 5 Minutes in Milliseconds
@@ -53,19 +65,60 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
   onAttendanceUpdated,
   soundEnabled,
   orgInfo,
+  scheduleSettings,
+  onOpenGeofenceModal,
 }) => {
   const { terminology } = orgInfo;
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Active Schedule & Geofence Configuration
+  const activeSettings = scheduleSettings || getStoredScheduleSettings();
+  const geofence: GeofenceSettings = activeSettings.geofence;
+  const isGeofenceEnforced = Boolean(geofence?.enforceGeofence);
+
+  // GPS Geofence Verification State
+  const [gpsState, setGpsState] = useState<{
+    isLocating: boolean;
+    isWithin: boolean;
+    distanceMeters: number | null;
+    error: string | null;
+    userCoords: { lat: number; lng: number } | null;
+    adminOverride: boolean;
+  }>({
+    isLocating: false,
+    isWithin: !isGeofenceEnforced,
+    distanceMeters: null,
+    error: null,
+    userCoords: null,
+    adminOverride: false,
+  });
+
   // Map to track the timestamp of recent attendance per student to enforce 5-minute cooldown
   const recentAttendanceMap = useRef<{ [studentId: string]: { timestamp: number; timeStr: string } }>({});
   const lastAlertTimestampMap = useRef<{ [studentId: string]: number }>({});
 
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
+  const cameraFacing = 'user'; // Strictly Front/Selfie Camera (Back camera disabled)
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraStarting, setIsCameraStarting] = useState<boolean>(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
+
+  const toggleBrowserFullscreen = () => {
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        setIsFullscreen(true);
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+        setIsFullscreen(false);
+      }
+    } catch {
+      // Fullscreen fallback
+    }
+  };
 
   // Auto-scanning state
   const [isProcessingMatch, setIsProcessingMatch] = useState<boolean>(false);
@@ -94,6 +147,71 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
   const [scanFailureMessage, setScanFailureMessage] = useState<string | null>(null);
   const [showManualSelection, setShowManualSelection] = useState<boolean>(false);
 
+  // Geofence Location Verification Function
+  const checkLiveLocation = useCallback(() => {
+    if (!isGeofenceEnforced) {
+      setGpsState({
+        isLocating: false,
+        isWithin: true,
+        distanceMeters: 0,
+        error: null,
+        userCoords: null,
+        adminOverride: false,
+      });
+      return;
+    }
+
+    if (!('geolocation' in navigator)) {
+      setGpsState(prev => ({
+        ...prev,
+        isLocating: false,
+        isWithin: false,
+        error: 'আপনার ডিভাইস বা ব্রাউজারে GPS লোকেশন সেবা সাপোর্ট করছে না।'
+      }));
+      return;
+    }
+
+    setGpsState(prev => ({ ...prev, isLocating: true, error: null }));
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const uLat = parseFloat(pos.coords.latitude.toFixed(6));
+        const uLng = parseFloat(pos.coords.longitude.toFixed(6));
+        const dist = Math.round(calculateDistanceMeters(uLat, uLng, geofence.latitude, geofence.longitude));
+        const inside = dist <= geofence.radiusMeters;
+
+        setGpsState({
+          isLocating: false,
+          isWithin: inside,
+          distanceMeters: dist,
+          error: null,
+          userCoords: { lat: uLat, lng: uLng },
+          adminOverride: false,
+        });
+      },
+      (err) => {
+        console.warn('Geofence check GPS error:', err);
+        setGpsState(prev => ({
+          ...prev,
+          isLocating: false,
+          isWithin: false,
+          error: 'GPS লোকেশন পাওয়া যায়নি। ব্রাউজারের অ্যাড্রেস বার থেকে লোকেশন পারমিশন অন করুন।'
+        }));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [isGeofenceEnforced, geofence.latitude, geofence.longitude, geofence.radiusMeters]);
+
+  // Run GPS Check when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      checkLiveLocation();
+    }
+  }, [isOpen, checkLiveLocation]);
+
+  // Is attendance currently blocked due to geofence violation?
+  const isLocationBlocked = isGeofenceEnforced && !gpsState.adminOverride && (!gpsState.isWithin || Boolean(gpsState.error));
+
   // Play audio chime
   const playAttendanceChime = useCallback(() => {
     if (!soundEnabled) return;
@@ -120,32 +238,124 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
 
   const startCamera = async (facing: 'user' | 'environment') => {
     setCameraError(null);
+    setIsCameraStarting(true);
+    setIsVideoPlaying(false);
+
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
+      setStream(null);
     }
+
+    // Check if mediaDevices API exists
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError('আপনার ব্রাউজার বা ডিভাইসে ক্যামেরা API সাপোর্ট করছে না। অনুগ্রহ করে Chrome বা Safari ব্রাউজার ব্যবহার করুন এবং HTTPS সংযোগ নিশ্চিত করুন।');
+      setIsCameraStarting(false);
+      return;
+    }
+
+    let mediaStream: MediaStream | null = null;
+
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+      // First attempt: ideal facingMode and dimensions
+      mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: facing,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          facingMode: { ideal: facing },
+          width: { ideal: 1280, min: 320 },
+          height: { ideal: 720, min: 240 },
         },
         audio: false,
       });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+    } catch (err) {
+      console.warn('Initial camera attempt with facingMode failed, attempting fallback 1...', err);
+      try {
+        // Fallback 1: facingMode without resolution constraints
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing },
+          audio: false,
+        });
+      } catch (err2) {
+        console.warn('Fallback 1 failed, attempting basic video...', err2);
+        try {
+          // Fallback 2: Any available video camera without strict constraints
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        } catch (fallbackErr: any) {
+          console.error('Camera access error:', fallbackErr);
+          setIsCameraStarting(false);
+          if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+            setCameraError('ক্যামেরা পারমিশন ব্লক করা আছে। ব্রাউজারের অ্যাড্রেস বারে তালা (Lock) আইকনে ক্লিক করে ক্যামেরার অনুমতি (Allow) দিন এবং পেজটি রিফ্রেশ করুন।');
+          } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+            setCameraError('কোনো ক্যামেরা ডিভাইস পাওয়া যায়নি। অনুগ্রহ করে আপনার ডিভাইসে ক্যামেরা সংযুক্ত আছে কি না তা পরীক্ষা করুন।');
+          } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+            setCameraError('ক্যামেরা অন্য কোনো অ্যাপ (যেমন Zoom, Meet বা অন্য ট্যাব) ব্যবহার করছে। অনুগ্রহ করে অন্য অ্যাপটি বন্ধ করে পুনরায় চেষ্টা করুন।');
+          } else {
+            setCameraError('ক্যামেরা চালু করা সম্ভব হয়নি। অনুগ্রহ করে ব্রাউজার পারমিশন পরীক্ষা করুন বা সরাসরি তালিকা থেকে সদস্য বেছে নিয়ে হাজিরা দিন।');
+          }
+          return;
+        }
       }
-    } catch (err: any) {
-      console.error('Camera access error:', err);
-      setCameraError('ক্যামেরা চালু করা সম্ভব হয়নি। অনুগ্রহ করে ব্রাউজার পারমিশন পরীক্ষা করুন।');
+    }
+
+    if (mediaStream) {
+      setStream(mediaStream);
+      setIsCameraStarting(false);
     }
   };
+
+  // Dedicated effect to bind stream to video element and trigger play
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      const video = videoRef.current;
+      video.srcObject = stream;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('autoplay', 'true');
+      video.setAttribute('muted', 'true');
+
+      const handlePlaying = () => {
+        setIsVideoPlaying(true);
+      };
+
+      video.addEventListener('playing', handlePlaying);
+      video.addEventListener('loadeddata', handlePlaying);
+
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setIsVideoPlaying(true);
+          })
+          .catch((err) => {
+            console.warn('Auto-play was prevented by browser policy:', err);
+          });
+      }
+
+      return () => {
+        video.removeEventListener('playing', handlePlaying);
+        video.removeEventListener('loadeddata', handlePlaying);
+      };
+    }
+  }, [stream]);
 
   const stopCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
+    }
+    setIsVideoPlaying(false);
+  };
+
+  const handleManualPlay = () => {
+    if (videoRef.current) {
+      videoRef.current.play().then(() => {
+        setIsVideoPlaying(true);
+      }).catch(err => {
+        console.error('Manual play failed:', err);
+        startCamera(cameraFacing);
+      });
+    } else {
+      startCamera(cameraFacing);
     }
   };
 
@@ -262,6 +472,25 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
     }
 
     // NEW ATTENDANCE RECORDING
+    // Check if location is blocked by geofence policy
+    if (isLocationBlocked) {
+      const errMsg = gpsState.error || `আপনি অফিসের অনুমোদিত ভৌগোলিক সীমানার বাইরে আছেন (দূরত্ব: ${gpsState.distanceMeters || 'অজ্ঞাত'} মি., অনুমোদিত পরিধি: ${geofence.radiusMeters} মি.)। হাজিরা গ্রহণ করা সম্ভব নয়।`;
+      setScanFailureMessage(errMsg);
+      if (soundEnabled) {
+        try {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance('আপনি অফিসের অনুমোদিত লোকেশনের বাইরে অবস্থান করছেন।');
+            utterance.lang = 'bn-BD';
+            window.speechSynthesis.speak(utterance);
+          }
+        } catch {
+          // Voice fallback
+        }
+      }
+      return;
+    }
+
     recentAttendanceMap.current[matched.id] = {
       timestamp: currentTimeMs,
       timeStr: timeStr,
@@ -322,6 +551,11 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
   const handleAutoProcessAttendance = async () => {
     if (!videoRef.current || isProcessingMatch) return;
 
+    if (isLocationBlocked) {
+      setIsProcessingMatch(false);
+      return;
+    }
+
     setIsProcessingMatch(true);
     setScanFailureMessage(null);
 
@@ -367,32 +601,25 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
     }
   };
 
-  const handleToggleFacing = () => {
-    const nextFacing = cameraFacing === 'user' ? 'environment' : 'user';
-    setCameraFacing(nextFacing);
-  };
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-white select-none overflow-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-white select-none overflow-hidden h-[100dvh] w-full animate-in fade-in duration-200">
       
       {/* Hidden Analysis Canvas */}
       <canvas ref={analysisCanvasRef} className="hidden" />
 
       {/* Top Floating Header Bar */}
-      <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-auto">
-        <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={handleToggleFacing}
-            title="ক্যামেরা পরিবর্তন (Front / Back)"
-            className="p-3 rounded-full bg-slate-950/70 backdrop-blur-md hover:bg-slate-900 text-slate-200 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 shadow-lg"
-          >
-            <SwitchCamera className="w-5 h-5" />
-          </button>
+      <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-auto gap-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-y-2">
+          
+          {/* Strict Front Camera Locked Badge */}
+          <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-teal-500/40 text-teal-300 text-xs font-bold shadow-lg flex items-center space-x-1.5 shrink-0">
+            <Lock className="w-3.5 h-3.5 text-teal-400" />
+            <span>সেলফি/ফ্রন্ট ক্যামেরা</span>
+          </div>
 
-          <div className="px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg flex items-center space-x-1.5">
+          <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg flex items-center space-x-1.5 shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             <span>অটোমেটিক ফেস স্ক্যানার</span>
             {selectedClassName && (
@@ -401,19 +628,61 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
               </span>
             )}
           </div>
+
+          {/* GPS Geofence Real-time Status Badge */}
+          {isGeofenceEnforced && (
+            <button
+              type="button"
+              onClick={checkLiveLocation}
+              title="GPS লোকেশন স্ট্যাটাস (রিফ্রেশ করতে ক্লিক করুন)"
+              className={`px-3 py-2 rounded-full backdrop-blur-md border text-xs font-bold shadow-lg flex items-center space-x-1.5 transition cursor-pointer active:scale-95 shrink-0 ${
+                gpsState.isLocating
+                  ? 'bg-slate-900/90 border-slate-700 text-slate-300'
+                  : gpsState.adminOverride
+                  ? 'bg-amber-950/90 border-amber-500 text-amber-300'
+                  : gpsState.isWithin
+                  ? 'bg-emerald-950/90 border-emerald-500 text-emerald-300'
+                  : 'bg-rose-950/90 border-rose-500 text-rose-300 animate-pulse'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {gpsState.isLocating
+                  ? 'GPS যাচাই...'
+                  : gpsState.adminOverride
+                  ? 'এডমিন এক্সেস'
+                  : gpsState.isWithin
+                  ? `জোন ভেরিফাইড (${gpsState.distanceMeters ?? 0} মি.)`
+                  : `বাইরে (${gpsState.distanceMeters ?? 'অজ্ঞাত'} মি.)`}
+              </span>
+              <RefreshCw className={`w-3 h-3 ${gpsState.isLocating ? 'animate-spin' : ''}`} />
+            </button>
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            stopCamera();
-            onClose();
-          }}
-          title="বন্ধ করুন"
-          className="p-3 rounded-full bg-slate-950/70 backdrop-blur-md hover:bg-rose-950/80 text-slate-300 hover:text-rose-300 border border-white/10 transition cursor-pointer active:scale-95 shadow-lg"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center space-x-2 shrink-0">
+          {/* Fullscreen Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleBrowserFullscreen}
+            title={isFullscreen ? 'ফুলস্ক্রিন বন্ধ করুন' : 'ফুলস্ক্রিন মোড চালু করুন'}
+            className="p-3 rounded-full bg-slate-950/80 backdrop-blur-md hover:bg-slate-900 text-slate-300 hover:text-white border border-white/15 transition cursor-pointer active:scale-95 shadow-lg flex items-center justify-center"
+          >
+            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              stopCamera();
+              onClose();
+            }}
+            title="বন্ধ করুন"
+            className="p-3 rounded-full bg-slate-950/80 backdrop-blur-md hover:bg-rose-950/90 text-slate-300 hover:text-rose-300 border border-white/15 transition cursor-pointer active:scale-95 shadow-lg"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Fullscreen Video Viewport */}
@@ -445,6 +714,35 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
                 cameraFacing === 'user' ? 'scale-x-[-1]' : ''
               }`}
             />
+
+            {/* Tap to start / Loading camera state */}
+            {(!isVideoPlaying || isCameraStarting) && (
+              <div 
+                onClick={handleManualPlay}
+                className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/85 p-6 text-center cursor-pointer select-none"
+              >
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400/80 flex items-center justify-center text-emerald-400 mb-4 animate-pulse shadow-[0_0_30px_rgba(16,185,129,0.4)]">
+                  <Camera className="w-8 h-8" />
+                </div>
+                <h3 className="text-base font-bold text-white mb-1.5">
+                  {isCameraStarting ? 'ক্যামেরা চালু হচ্ছে...' : 'ক্যামেরা লাইভ ভিউ শুরু করতে ট্যাপ করুন'}
+                </h3>
+                <p className="text-xs text-slate-300 max-w-xs mb-4">
+                  মোবাইল ব্রাউজার সুরক্ষার জন্য স্ক্রিনে যেকোনো স্থানে ট্যাপ করে লাইভ ক্যামেরা চালু করুন
+                </p>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleManualPlay();
+                  }}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-2xl shadow-lg cursor-pointer flex items-center space-x-2"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>ক্যামেরা চালু করুন</span>
+                </button>
+              </div>
+            )}
 
             {/* Dark Vignette Overlay for aesthetic biometric focus */}
             <div className="absolute inset-0 bg-radial from-transparent via-black/25 to-black/75 pointer-events-none" />
@@ -556,6 +854,80 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
               </div>
             )}
 
+            {/* GEOFENCE RESTRICTION WARNING OVERLAY */}
+            {isLocationBlocked && !lastMatchedStudent && (
+              <div className="absolute top-20 left-4 right-4 z-30 max-w-md mx-auto p-4 bg-slate-950/95 border-2 border-rose-500 rounded-3xl text-white shadow-2xl backdrop-blur-md space-y-3 pointer-events-auto animate-in slide-in-from-top-4 duration-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="p-2.5 bg-rose-500/20 text-rose-400 rounded-2xl shrink-0">
+                      <MapPin className="w-6 h-6 animate-bounce" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-rose-300">
+                        লোকেশন বাধা: অফিসের বাইরে আছেন!
+                      </h4>
+                      <p className="text-[11px] text-slate-300 mt-0.5">
+                        অফিস জোন: <span className="font-semibold text-white">{geofence.locationName}</span>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={checkLiveLocation}
+                    disabled={gpsState.isLocating}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shrink-0 cursor-pointer shadow transition active:scale-95"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${gpsState.isLocating ? 'animate-spin' : ''}`} />
+                    <span>রিফ্রেশ</span>
+                  </button>
+                </div>
+
+                {/* Distance comparison metric */}
+                <div className="grid grid-cols-2 gap-2 bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">আপনার বর্তমান দূরত্ব</span>
+                    <span className="font-mono font-bold text-rose-400 text-sm">
+                      {gpsState.distanceMeters !== null ? `${gpsState.distanceMeters} মিটার` : 'অজ্ঞাত'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">সর্বোচ্চ অনুমোদিত সীমা</span>
+                    <span className="font-mono font-bold text-emerald-400 text-sm">
+                      {geofence.radiusMeters} মিটার
+                    </span>
+                  </div>
+                </div>
+
+                {gpsState.error && (
+                  <p className="text-xs text-amber-300 bg-amber-950/50 p-2 rounded-xl border border-amber-800/50">
+                    ⚠️ {gpsState.error}
+                  </p>
+                )}
+
+                {/* Admin override & settings actions */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                  {onOpenGeofenceModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenGeofenceModal}
+                      className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold underline cursor-pointer"
+                    >
+                      লোকেশন বা পরিধি পরিবর্তন
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setGpsState(prev => ({ ...prev, adminOverride: true }))}
+                    className="text-[11px] text-slate-400 hover:text-amber-300 font-semibold cursor-pointer ml-auto flex items-center gap-1"
+                  >
+                    <Unlock className="w-3 h-3" />
+                    <span>জরুরি এডমিন এক্সেস</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* SCAN FAILURE OR UNRECOGNIZED ALERT OVERLAY */}
             {scanFailureMessage && !lastMatchedStudent && (
               <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150 pointer-events-auto">
@@ -610,6 +982,10 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
                           key={std.id}
                           type="button"
                           onClick={() => {
+                            if (isLocationBlocked) {
+                              alert(`❌ লোকেশন বাধা:\nআপনি অফিসের অনুমোদিত সীমানার বাইরে অবস্থান করছেন!\n\nবর্তমান দূরত্ব: ${gpsState.distanceMeters ?? 'অজ্ঞাত'} মিটার\nসর্বোচ্চ অনুমোদিত সীমা: ${geofence.radiusMeters} মিটার\nঅফিস: ${geofence.locationName}\n\nহাজিরা দিতে অফিসের নির্ধারিত সীমানার মধ্যে আসুন অথবা এডমিন এক্সেস নিন।`);
+                              return;
+                            }
                             setShowManualSelection(false);
                             const snapshot = videoRef.current
                               ? extractFaceImage(videoRef.current, cameraFacing, faceAnalysis.boundingBox)
@@ -707,20 +1083,31 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
                   </p>
 
                   {/* Attendance Info Grid */}
-                  <div className="grid grid-cols-2 gap-2 bg-slate-950/70 p-3 rounded-2xl border border-slate-800 text-xs mb-4">
-                    <div className="flex items-center space-x-2 text-left p-1.5">
+                  <div className="grid grid-cols-3 gap-2 bg-slate-950/70 p-3 rounded-2xl border border-slate-800 text-xs mb-4">
+                    <div className="flex items-center space-x-2 text-left p-1">
                       <Clock className={`w-4 h-4 shrink-0 ${matchDetails.isAlreadyAttended ? 'text-amber-400' : 'text-emerald-400'}`} />
-                      <div>
-                        <div className="text-[10px] text-slate-400">হাজিরার সময়</div>
-                        <div className="font-bold text-slate-200">{matchDetails.time}</div>
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-slate-400 truncate">হাজিরার সময়</div>
+                        <div className="font-bold text-slate-200 truncate font-mono">{matchDetails.time}</div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 text-left p-1.5">
+                    
+                    <div className="flex items-center space-x-2 text-left p-1 border-x border-slate-800 px-2">
+                      <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-slate-400 truncate">কার্যকর শিফট</div>
+                        <div className="font-bold text-emerald-300 truncate">
+                          {getCurrentActiveShift(getStoredScheduleSettings(), new Date())?.nameBangla || 'ডে শিফট'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 text-left p-1">
                       <Sparkles className="w-4 h-4 text-teal-400 shrink-0" />
-                      <div>
-                        <div className="text-[10px] text-slate-400">স্ট্যাটাস</div>
-                        <div className={`font-bold ${matchDetails.isAlreadyAttended ? 'text-amber-300' : 'text-emerald-400'}`}>
-                          {matchDetails.isAlreadyAttended ? 'ইতিমধ্যে উপস্থিত' : 'উপস্থিত (Present)'}
+                      <div className="min-w-0">
+                        <div className="text-[10px] text-slate-400 truncate">স্ট্যাটাস</div>
+                        <div className={`font-bold truncate ${matchDetails.isAlreadyAttended ? 'text-amber-300' : 'text-emerald-400'}`}>
+                          {matchDetails.isAlreadyAttended ? 'উপস্থিত' : 'সফল'}
                         </div>
                       </div>
                     </div>

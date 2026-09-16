@@ -38,7 +38,26 @@ export async function signInWithGoogle(): Promise<User | null> {
     return result.user;
   } catch (error: any) {
     console.error('Google Sign In Error:', error);
-    throw error;
+    const code = error?.code || '';
+    const message = error?.message || '';
+
+    if (
+      code === 'auth/web-storage-unsupported' || 
+      code === 'auth/operation-not-supported-in-this-environment' ||
+      message.includes('third-party cookies') ||
+      message.includes('storage') ||
+      message.includes('cookie')
+    ) {
+      throw new Error('COOKIE_BLOCKED: ব্রাউজারের আইফ্রেম বা প্রিভিউ মোডে ৩য় পক্ষীয় কুকিজ ব্লক করা হয়েছে। অনুগ্রহ করে সরাসরি লগইন বাটন ব্যবহার করুন অথবা নতুন উইন্ডোতে অ্যাপটি খুলুন।');
+    } else if (code === 'auth/popup-blocked') {
+      throw new Error('POPUP_BLOCKED: ব্রাউজারের পপআপ উইন্ডো ব্লক করা হয়েছে। অনুগ্রহ করে পপআপ পারমিশন এলাউ করুন অথবা সরাসরি লগইন করুন।');
+    } else if (code === 'auth/unauthorized-domain') {
+      throw new Error('UNAUTHORIZED_DOMAIN: বর্তমান ডোমেইনটি অথোরাইজড তালিকায় যুক্ত নেই। আপনি নিচের সরাসরি লগইন বিকল্প দিয়ে অনায়াসে প্রবেশ করতে পারেন।');
+    } else if (code === 'auth/cancelled-popup-request' || code === 'auth/popup-closed-by-user') {
+      throw new Error('লগইন পপআপ উইন্ডো বন্ধ করা হয়েছে।');
+    }
+    
+    throw new Error(error.message || 'গুগল সাইন-ইন সম্পন্ন করা যায়নি। অনুগ্রহ করে সরাসরি লগইন বিকল্প ব্যবহার করুন।');
   }
 }
 

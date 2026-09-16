@@ -38,6 +38,12 @@ export interface Student {
   fingerprintRegistered?: boolean;
   fingerprintTemplate?: string;
   fingerprintFingerName?: string;
+  fingerprintStatus?: 'None' | 'Pending' | 'Approved' | 'Rejected';
+  fingerprintDeviceId?: string;
+  fingerprintDeviceModel?: string;
+  fingerprintRegisteredAt?: string;
+  fingerprintApprovedAt?: string;
+  fingerprintApprovedBy?: string;
   gender: 'Male' | 'Female' | 'Other';
   guardianPhone: string;
   parentPhone?: string;
@@ -53,6 +59,13 @@ export interface Student {
   monthlySalary?: number;
   dailyWage?: number;
   hourlyRate?: number;
+  
+  // Security & Device Locking
+  isDeviceLocked?: boolean;
+  lockedDevices?: string[];
+  lastLoginDevice?: string;
+  lastLoginTime?: string;
+  lastLoginIp?: string;
   
   // Extended Somity Fields
   savingsBalance?: number;
@@ -190,6 +203,34 @@ export interface AcademicSchedule {
   roomNo: string;
   examName?: string;
   passMark?: number;
+}
+
+export interface EmployeeDeviceSession {
+  id: string;
+  studentId: string;
+  deviceName: string;
+  deviceType: 'mobile' | 'desktop' | 'tablet';
+  browser: string;
+  ipAddress: string;
+  location: string;
+  loginTime: string;
+  lastActive: string;
+  isCurrentDevice: boolean;
+  isLocked: boolean;
+  lockReason?: string;
+  lockedAt?: string;
+}
+
+export interface EmployeeActivityLog {
+  id: string;
+  studentId: string;
+  timestamp: string;
+  activityType: 'login' | 'punch_face' | 'punch_fingerprint' | 'device_lock' | 'device_unlock' | 'security_check';
+  description: string;
+  device: string;
+  ipAddress?: string;
+  location?: string;
+  status: 'success' | 'warning' | 'locked';
 }
 
 export interface DailyClassSummary {

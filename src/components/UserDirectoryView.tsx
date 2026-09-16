@@ -21,11 +21,16 @@ import {
   Fingerprint,
   Edit3,
   Trash2,
-  Zap
+  Zap,
+  Clock,
+  Check,
+  X,
+  Smartphone,
+  ShieldAlert
 } from 'lucide-react';
 import { Student, ClassSubject } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { isFaceActuallyRegistered, isFingerprintActuallyRegistered } from '../utils/faceMatching';
+import { isFaceActuallyRegistered, isFingerprintActuallyRegistered, isFingerprintPendingApproval, isFingerprintApproved } from '../utils/faceMatching';
 
 interface UserDirectoryViewProps {
   students: Student[];
@@ -37,6 +42,7 @@ interface UserDirectoryViewProps {
   onOpenBiometricsModal?: (student: Student) => void;
   onEditStudent?: (student: Student) => void;
   onDeleteStudent?: (studentId: string) => void;
+  onApproveBiometrics?: (studentId: string, status: 'Approved' | 'Rejected' | 'None') => void;
 }
 
 export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
@@ -49,6 +55,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   onOpenBiometricsModal,
   onEditStudent,
   onDeleteStudent,
+  onApproveBiometrics,
 }) => {
   const { terminology } = orgInfo;
 
@@ -56,6 +63,9 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+
+  // Pending biometric approvals
+  const pendingBiometricStudents = students.filter(isFingerprintPendingApproval);
 
   // Filter students
   const filteredStudents = students.filter(student => {
@@ -70,14 +80,17 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
       (student.designation && student.designation.toLowerCase().includes(query));
 
     const matchesClass = selectedClassFilter === 'All' || student.classId === selectedClassFilter;
-    const matchesStatus = selectedStatusFilter === 'All' || 
-      (selectedStatusFilter === 'Active' && student.active !== false) ||
-      (selectedStatusFilter === 'Inactive' && student.active === false);
+    
+    let matchesStatus = true;
+    if (selectedStatusFilter === 'Active') matchesStatus = student.active !== false;
+    if (selectedStatusFilter === 'Inactive') matchesStatus = student.active === false;
+    if (selectedStatusFilter === 'PendingBio') matchesStatus = isFingerprintPendingApproval(student);
 
     return matchesSearch && matchesClass && matchesStatus;
   });
 
   const enrolledBiometricsCount = students.filter(isFaceActuallyRegistered).length;
+  const enrolledFingerprintCount = students.filter(isFingerprintApproved).length;
   const activeCount = students.filter(s => s.active !== false).length;
 
   return (
@@ -97,7 +110,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              সকল {terminology.memberLabel} প্রোফাইল, তথ্য এডিট, আইডি কার্ড ও বায়োমেট্রিক পরিচালনা করুন
+              সকল {terminology.memberLabel}দের প্রোফাইল, মোবাইল বায়োমেট্রিক ফিঙ্গারপ্রিন্ট অনুমোদন, ফেস ডাটা ও তথ্য নিয়ন্ত্রণ করুন
             </p>
           </div>
         </div>
@@ -123,6 +136,76 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         </div>
       </div>
 
+      {/* Pending Biometric Approvals Banner */}
+      {pendingBiometricStudents.length > 0 && (
+        <div className="p-5 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-500/30 rounded-3xl space-y-3.5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center space-x-2.5 text-amber-900 dark:text-amber-200">
+              <span className="p-2 bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400">
+                <Clock className="w-5 h-5 animate-pulse" />
+              </span>
+              <div>
+                <h3 className="font-extrabold text-sm flex items-center gap-2">
+                  <span>মোবাইল ফিঙ্গারপ্রিন্ট অনুমোদনের আবেদন ({pendingBiometricStudents.length} জন)</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                    অ্যাকশন প্রয়োজন
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  কর্মীরা তাদের নিজস্ব মোবাইল থেকে ফিঙ্গারপ্রিন্ট এনরোল করেছেন। কোম্পানির এডমিন অনুমোদন দিলেই তারা হাজিরা দিতে পারবেন।
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSelectedStatusFilter('PendingBio')}
+              className="text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline shrink-0 cursor-pointer self-start sm:self-auto"
+            >
+              সকল আবেদন দেখুন ({pendingBiometricStudents.length})
+            </button>
+          </div>
+
+          {/* Quick Request Approval Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+            {pendingBiometricStudents.slice(0, 3).map(student => (
+              <div key={student.id} className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-amber-300/80 dark:border-amber-900/50 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-black flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-800">
+                    {student.nameBangla.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-xs text-slate-900 dark:text-white truncate">{student.nameBangla}</p>
+                    <p className="text-[10px] text-slate-500 truncate font-mono">
+                      {student.fingerprintDeviceModel || 'স্মার্টফোন'} • আইডি: {student.roll}
+                    </p>
+                  </div>
+                </div>
+
+                {onApproveBiometrics && (
+                  <div className="flex items-center space-x-1 shrink-0">
+                    <button
+                      onClick={() => onApproveBiometrics(student.id, 'Approved')}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-lg transition flex items-center space-x-1 cursor-pointer shadow-xs"
+                      title="অনুমোদন করুন"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>অনুমোদন</span>
+                    </button>
+                    <button
+                      onClick={() => onApproveBiometrics(student.id, 'Rejected')}
+                      className="p-1 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg transition border border-rose-200 dark:border-rose-900 cursor-pointer"
+                      title="বাতিল করুন"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Metrics Mini-Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -131,8 +214,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">সক্রিয় সদস্য</p>
-          <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{activeCount} জন</p>
+          <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">অনুমোদিত ফিঙ্গারপ্রিন্ট</p>
+          <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{enrolledFingerprintCount} জন</p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -141,8 +224,8 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">মোট বিভাগ/শাখা</p>
-          <p className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{classes.length} টি</p>
+          <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">অনুমোদন বাকি</p>
+          <p className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{pendingBiometricStudents.length} জন</p>
         </div>
       </div>
 
@@ -186,6 +269,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
           >
             <option value="All">সকল স্ট্যাটাস</option>
             <option value="Active">সক্রিয় (Active)</option>
+            <option value="PendingBio">⏳ ফিঙ্গারপ্রিন্ট আবেদন ({pendingBiometricStudents.length})</option>
             <option value="Inactive">নিষ্ক্রিয় (Inactive)</option>
           </select>
 
@@ -234,35 +318,37 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         </div>
       ) : viewMode === 'table' ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
-          {/* Table Container with safe min-width and horizontal scrolling so it NEVER breaks */}
+          {/* Table Container with safe min-width and horizontal scrolling */}
           <div className="overflow-x-auto w-full">
-            <table className="w-full min-w-[850px] text-left border-collapse text-xs">
+            <table className="w-full min-w-[880px] text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">{terminology.memberLabel} ও প্রোফাইল</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[100px]">{terminology.idLabel}</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">{terminology.groupLabel}</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[150px]">যোগাযোগ</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">বায়োমেট্রিক স্ট্যাটাস</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">মোবাইল বায়োমেট্রিক স্ট্যাটাস</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[90px]">স্ট্যাটাস</th>
-                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[180px]">অ্যাকশন</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[190px]">অ্যাকশন</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {filteredStudents.map(student => {
                   const studentClass = classes.find(c => c.id === student.classId);
                   const hasFace = isFaceActuallyRegistered(student);
-                  const hasFingerprint = isFingerprintActuallyRegistered(student);
+                  const isPending = isFingerprintPendingApproval(student);
+                  const isApproved = isFingerprintApproved(student);
+                  const isRejected = student.fingerprintStatus === 'Rejected';
 
                   return (
-                    <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                    <tr key={student.id} className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition ${isPending ? 'bg-amber-50/30 dark:bg-amber-950/20' : ''}`}>
                       
                       {/* Name & Avatar */}
                       <td className="py-3 px-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 text-emerald-700 dark:text-emerald-300 font-black flex items-center justify-center border border-emerald-500/30 shrink-0 overflow-hidden">
-                            {hasFace && (student.faceImage || student.photoUrl) ? (
-                              <img src={student.faceImage || student.photoUrl} alt={student.nameBangla} className="w-full h-full object-cover" />
+                            {(student.photoUrl || student.faceImage) ? (
+                              <img src={student.photoUrl || student.faceImage} alt={student.nameBangla} className="w-full h-full object-cover" />
                             ) : (
                               student.nameBangla.charAt(0)
                             )}
@@ -308,28 +394,53 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                         </div>
                       </td>
 
-                      {/* Biometric Status (Face + Fingerprint) */}
+                      {/* Biometric Status (Face + Mobile Fingerprint with Pending Approval) */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {hasFace ? (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" title="ফেস সক্রিয়">
-                              <Camera className="w-3 h-3 text-emerald-500" />
-                              <span>ফেস সক্রিয়</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                              <span>ফেস নেই</span>
-                            </span>
-                          )}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {hasFace ? (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" title="ফেস সক্রিয়">
+                                <Camera className="w-3 h-3 text-emerald-500" />
+                                <span>ফেস সক্রিয়</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                <span>ফেস নেই</span>
+                              </span>
+                            )}
 
-                          {hasFingerprint ? (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800" title="ফিঙ্গারপ্রিন্ট সক্রিয়">
-                              <Fingerprint className="w-3 h-3 text-indigo-500" />
-                              <span>আঙুল সক্রিয়</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                              <span>আঙুল নেই</span>
+                            {isPending && (
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse" title={`ডিভাইস: ${student.fingerprintDeviceModel || 'Mobile'}`}>
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                <span>অনুমোদনের অপেক্ষা</span>
+                              </span>
+                            )}
+
+                            {isApproved && (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" title={`অনুমোদিত ডিভাইস: ${student.fingerprintDeviceModel || 'ফোন'}`}>
+                                <Fingerprint className="w-3 h-3 text-emerald-500" />
+                                <span>অনুমোদিত আঙুল</span>
+                              </span>
+                            )}
+
+                            {isRejected && (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                                <ShieldAlert className="w-3 h-3 text-rose-500" />
+                                <span>বাতিলকৃত</span>
+                              </span>
+                            )}
+
+                            {!student.fingerprintRegistered && !isPending && (
+                              <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-400 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                <span>আঙুল নেই</span>
+                              </span>
+                            )}
+                          </div>
+
+                          {student.fingerprintDeviceModel && (
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                              <Smartphone className="w-2.5 h-2.5 text-slate-400" />
+                              <span className="truncate max-w-[150px]">{student.fingerprintDeviceModel}</span>
                             </span>
                           )}
                         </div>
@@ -349,6 +460,28 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                       {/* Action Buttons */}
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end space-x-1.5">
+                          
+                          {/* Quick Admin Biometric Approval Buttons */}
+                          {isPending && onApproveBiometrics && (
+                            <>
+                              <button
+                                onClick={() => onApproveBiometrics(student.id, 'Approved')}
+                                className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black transition flex items-center space-x-1 cursor-pointer shadow-xs"
+                                title="মোবাইল ফিঙ্গারপ্রিন্ট অনুমোদন দিন"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>অনুমোদন</span>
+                              </button>
+                              <button
+                                onClick={() => onApproveBiometrics(student.id, 'Rejected')}
+                                className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900 transition cursor-pointer"
+                                title="বাতিল করুন"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+
                           {/* 1. Edit Profile Button */}
                           {onEditStudent && (
                             <button
@@ -414,15 +547,16 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
           {filteredStudents.map(student => {
             const studentClass = classes.find(c => c.id === student.classId);
             const hasFace = isFaceActuallyRegistered(student);
-            const hasFingerprint = isFingerprintActuallyRegistered(student);
+            const isPending = isFingerprintPendingApproval(student);
+            const isApproved = isFingerprintApproved(student);
 
             return (
-              <div key={student.id} className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4 hover:border-emerald-500/40 transition">
+              <div key={student.id} className={`bg-white dark:bg-slate-900 rounded-3xl p-5 border shadow-xs flex flex-col justify-between space-y-4 hover:border-emerald-500/40 transition ${isPending ? 'border-amber-400 dark:border-amber-600/80 bg-amber-50/20' : 'border-slate-200 dark:border-slate-800'}`}>
                 
                 <div className="flex items-start space-x-3.5">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 text-emerald-700 dark:text-emerald-300 font-black text-lg flex items-center justify-center border border-emerald-500/30 shrink-0 overflow-hidden shadow-xs">
-                    {hasFace && (student.faceImage || student.photoUrl) ? (
-                      <img src={student.faceImage || student.photoUrl} alt={student.nameBangla} className="w-full h-full object-cover" />
+                    {(student.photoUrl || student.faceImage) ? (
+                      <img src={student.photoUrl || student.faceImage} alt={student.nameBangla} className="w-full h-full object-cover" />
                     ) : (
                       student.nameBangla.charAt(0)
                     )}
@@ -459,13 +593,37 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                       <span>{student.guardianPhone || student.parentPhone}</span>
                     </div>
                   )}
-                  {student.email && (
-                    <div className="flex items-center space-x-2 text-slate-500 text-[11px] truncate">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{student.email}</span>
+                  {student.fingerprintDeviceModel && (
+                    <div className="flex items-center space-x-2 text-slate-500 text-[11px] truncate font-mono">
+                      <Smartphone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{student.fingerprintDeviceModel}</span>
                     </div>
                   )}
                 </div>
+
+                {/* Pending Approval Quick Action Card Bar */}
+                {isPending && onApproveBiometrics && (
+                  <div className="p-2.5 bg-amber-100/70 dark:bg-amber-950/50 rounded-2xl border border-amber-300 dark:border-amber-800 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-800 dark:text-amber-200 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                      <span>ফিঙ্গারপ্রিন্ট অনুমোদন বাকি</span>
+                    </span>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => onApproveBiometrics(student.id, 'Approved')}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] rounded-lg cursor-pointer"
+                      >
+                        অনুমোদন
+                      </button>
+                      <button
+                        onClick={() => onApproveBiometrics(student.id, 'Rejected')}
+                        className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[10px] rounded-lg cursor-pointer"
+                      >
+                        বাতিল
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 gap-2">
                   <div className="flex items-center space-x-1">
@@ -477,11 +635,13 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                       {hasFace ? '✓ ফেস' : '✕ ফেস নেই'}
                     </span>
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                      hasFingerprint 
+                      isApproved
                         ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800'
+                        : isPending
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
                         : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
                     }`}>
-                      {hasFingerprint ? '✓ আঙুল' : '✕ আঙুল নেই'}
+                      {isApproved ? '✓ অনুমোদিত' : isPending ? '⏳ অপেক্ষা' : '✕ আঙুল নেই'}
                     </span>
                   </div>
 

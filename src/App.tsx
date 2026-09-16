@@ -90,10 +90,53 @@ import {
 import { User } from 'firebase/auth';
 
 export default function App() {
-  const [currentRole, setCurrentRole] = useState<UserRole>('teacher');
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    try {
+      const saved = localStorage.getItem('smart_hazira_current_role_v1');
+      return (saved as UserRole) || 'teacher';
+    } catch {
+      return 'teacher';
+    }
+  });
+
   const [orgCategory, setOrgCategory] = useState<OrgCategoryKey>('educational');
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  const [currentUser, setCurrentUserState] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem('smart_hazira_current_user_v1');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setCurrentUser = (user: User | null) => {
+    setCurrentUserState(user);
+    try {
+      if (user) {
+        localStorage.setItem('smart_hazira_current_user_v1', JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+        }));
+      } else {
+        localStorage.removeItem('smart_hazira_current_user_v1');
+      }
+    } catch (e) {
+      console.warn('Could not save user to storage:', e);
+    }
+  };
+
+  const handleRoleChange = (role: UserRole) => {
+    setCurrentRole(role);
+    try {
+      localStorage.setItem('smart_hazira_current_role_v1', role);
+    } catch {
+      // ignore
+    }
+  };
   
   const [classes, setClasses] = useState<ClassSubject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -105,7 +148,14 @@ export default function App() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(MOCK_LEAVE_REQUESTS);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>(MOCK_COMPANIES);
-  const [activeCompany, setActiveCompany] = useState<RegisteredCompany | null>(null);
+  const [activeCompany, setActiveCompany] = useState<RegisteredCompany | null>(() => {
+    try {
+      const saved = localStorage.getItem('smart_hazira_active_company_v1');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const handleGoogleSignIn = async () => {
     try {
@@ -133,21 +183,26 @@ export default function App() {
   const handleGoogleSignOut = async () => {
     try {
       await signOutUser();
-      setCurrentUser(null);
-      const newLog: AuditLogItem = {
-        id: `log-out-${Date.now()}`,
-        userRole: currentRole,
-        action: 'Google Authentication Sign Out',
-        targetMember: currentUser?.displayName || currentUser?.email || 'User',
-        timestamp: new Date().toLocaleTimeString('bn-BD'),
-        details: `সফলভাবে লগআউট সম্পন্ন হয়েছে`,
-        status: 'Success'
-      };
-      setAuditLogs(prev => [newLog, ...prev]);
-      saveAuditLogToFirestore(newLog);
     } catch (error) {
-      console.error('Sign Out failed:', error);
+      console.error('Sign Out error from Firebase:', error);
     }
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('smart_hazira_current_user_v1');
+    } catch {
+      // ignore
+    }
+    const newLog: AuditLogItem = {
+      id: `log-out-${Date.now()}`,
+      userRole: currentRole,
+      action: 'Authentication Sign Out',
+      targetMember: currentUser?.displayName || currentUser?.email || 'User',
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: `সফলভাবে লগআউট সম্পন্ন হয়েছে`,
+      status: 'Success'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
   };
 
   const handleAddCompany = (newCompany: RegisteredCompany) => {
@@ -181,8 +236,13 @@ export default function App() {
 
   const handleSelectCompanyToManage = (company: RegisteredCompany) => {
     setActiveCompany(company);
+    try {
+      localStorage.setItem('smart_hazira_active_company_v1', JSON.stringify(company));
+    } catch {
+      // ignore
+    }
     handleSelectOrgCategory(company.category, true);
-    setCurrentRole('teacher');
+    handleRoleChange('teacher');
     const newLog: AuditLogItem = {
       id: `log-sw-${Date.now()}`,
       userRole: 'Super Admin',
@@ -353,9 +413,11 @@ export default function App() {
       }
     });
 
-    // Subscribe to Auth state
-    const unsubAuth = subscribeToAuth((user) => {
-      setCurrentUser(user);
+    // Subscribe to Auth state: only update if Firebase returns a non-null authenticated user
+    const unsubAuth = subscribeToAuth((cloudUser) => {
+      if (cloudUser) {
+        setCurrentUser(cloudUser);
+      }
     });
 
     return () => {
@@ -532,6 +594,41 @@ export default function App() {
     }
   };
 
+  const handleApproveBiometrics = (studentId: string, status: 'Approved' | 'Rejected' | 'None') => {
+    const target = students.find(s => s.id === studentId);
+    if (!target) return;
+
+    const updatedStudent: Student = {
+      ...target,
+      fingerprintStatus: status,
+      fingerprintRegistered: status === 'Approved',
+      fingerprintApprovedAt: status === 'Approved' ? new Date().toISOString() : undefined,
+      fingerprintApprovedBy: status === 'Approved' ? (currentUser?.name || 'Company Admin') : undefined
+    };
+
+    setStudents(prev => {
+      const updated = prev.map(s => (s.id === studentId ? updatedStudent : s));
+      saveStudents(updated);
+      return updated;
+    });
+
+    saveMemberToFirestore(updatedStudent);
+
+    const newLog: AuditLogItem = {
+      id: `log-bio-${Date.now()}`,
+      userRole: currentRole === 'super_admin' ? 'Super Admin' : 'Admin',
+      action: status === 'Approved' ? 'Biometrics Approved' : 'Biometrics Rejected',
+      targetMember: target.nameBangla,
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: status === 'Approved' 
+        ? `মোবাইল ফিঙ্গারপ্রিন্ট অনুমোদন করা হয়েছে (ডিভাইস: ${target.fingerprintDeviceModel || 'স্মার্টফোন'})`
+        : `মোবাইল ফিঙ্গারপ্রিন্ট আবেদন বাতিল করা হয়েছে`,
+      status: status === 'Approved' ? 'Success' : 'Warning'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
+  };
+
   // Payroll handlers
   const handleUpdatePayrollStatus = (recordId: string, status: 'Paid' | 'Pending', method?: any) => {
     setPayrollRecords(prev =>
@@ -608,7 +705,7 @@ export default function App() {
         companies={registeredCompanies}
         students={students}
         onAddCompany={handleAddCompany}
-        onRoleChange={setCurrentRole}
+        onRoleChange={handleRoleChange}
         onSelectCompany={handleSelectCompanyToManage}
         onSelectLoggedInStudent={(std) => setSelectedLoggedInStudentId(std.id)}
         onSetCurrentUser={setCurrentUser}
@@ -738,6 +835,7 @@ export default function App() {
                 }}
                 onEditStudent={handleOpenEditModal}
                 onDeleteStudent={handleDeleteMember}
+                onApproveBiometrics={handleApproveBiometrics}
               />
             ) : activeTab === 'payroll' ? (
               <PayrollView
@@ -795,6 +893,19 @@ export default function App() {
               onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
               orgInfo={orgInfo}
               selectedStudentId={selectedLoggedInStudentId}
+              scheduleSettings={scheduleSettings}
+              onSignOut={handleGoogleSignOut}
+              onUpdateStudent={(updatedStudent) => {
+                setStudents(prev => {
+                  const updated = prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s));
+                  saveStudents(updated);
+                  return updated;
+                });
+                saveMemberToFirestore(updatedStudent);
+              }}
+              onAttendancePunch={(record) => {
+                handleAttendanceUpdated(record);
+              }}
             />
           )}
 
@@ -813,16 +924,13 @@ export default function App() {
         orgInfo={orgInfo}
       />
 
-      {/* GPS Location & Selfie Scanner Modal */}
+      {/* GPS Geofencing & Office Boundary Configuration Modal */}
       <GeofenceScannerModal
         isOpen={isGeofenceScannerOpen}
         onClose={() => setIsGeofenceScannerOpen(false)}
-        students={students}
-        selectedClassId={selectedClassId}
-        selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
-        onAttendanceUpdated={handleAttendanceUpdated}
         orgInfo={orgInfo}
         scheduleSettings={scheduleSettings}
+        onSaveSettings={handleSaveScheduleSettings}
       />
 
       {/* Student Face Register Modal */}
@@ -942,6 +1050,7 @@ export default function App() {
         }}
         onOpenOrgSelector={() => setIsOrgSelectorOpen(true)}
         onRoleChange={setCurrentRole}
+        onSignOut={handleGoogleSignOut}
       />
 
       {/* Schedule, Shift (24h) & GPS Geofence Settings Modal */}
@@ -1023,6 +1132,7 @@ export default function App() {
           onOpenProfileModal={() => setIsCompanyProfileModalOpen(true)}
           onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
           onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+          onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
         />
       )}
 

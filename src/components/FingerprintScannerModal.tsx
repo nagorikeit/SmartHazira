@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Fingerprint, CheckCircle2, AlertCircle, RefreshCw, Cpu, Wifi, HardDrive, ShieldCheck, Volume2 } from 'lucide-react';
+import { X, Fingerprint, CheckCircle2, AlertCircle, RefreshCw, Cpu, Wifi, HardDrive, ShieldCheck, Volume2, Layers, Smartphone } from 'lucide-react';
 import { Student, AttendanceRecord } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
+import { saveAttendanceRecord } from '../utils/storage';
+import { getStoredScheduleSettings, getCurrentActiveShift } from '../utils/scheduleConfig';
+import { triggerMobileFingerprintPrompt } from '../utils/mobileBiometrics';
 
 const speakBengaliText = (text: string) => {
   if ('speechSynthesis' in window) {
@@ -68,30 +71,44 @@ export const FingerprintScannerModal: React.FC<FingerprintScannerModalProps> = (
     setIsScanning(true);
     setScanResult(null);
 
-    // Try WebAuthn if built-in device selected and supported
-    if (deviceType === 'built_in' && window.PublicKeyCredential) {
+    const student = students.find((s) => s.id === selectedStudentId) || students[0];
+    if (!student) {
+      setIsScanning(false);
+      return;
+    }
+
+    // Try WebAuthn native mobile/laptop biometric prompt if built-in device selected
+    if (deviceType === 'built_in') {
       try {
-        // Attempt native biometric prompt call if available, fallback gracefully
+        const promptResult = await triggerMobileFingerprintPrompt(student.nameBangla, student.roll);
+        if (!promptResult.success) {
+          setIsScanning(false);
+          setScanResult({
+            matched: false,
+            studentName: student.nameBangla,
+            roll: student.roll,
+            time: '',
+            status: 'Present',
+            confidence: 0,
+            message: promptResult.error || 'ফিঙ্গারপ্রিন্ট সেন্সর যাচাই বাতিল করা হয়েছে।'
+          });
+          return;
+        }
       } catch (e) {
-        console.log('WebAuthn prompt dismissed or not configured, using direct biometric matching');
+        console.log('Native biometric prompt fallback:', e);
       }
     }
 
     setTimeout(async () => {
-      const student = students.find((s) => s.id === selectedStudentId) || students[0];
-      if (!student) {
-        setIsScanning(false);
-        return;
-      }
-
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
       const dateStr = now.toISOString().split('T')[0];
       const isLate = now.getHours() >= 9 && now.getMinutes() > 15;
       const status: 'Present' | 'Late' = isLate ? 'Late' : 'Present';
 
-      const newRecord: AttendanceRecord = {
-        id: `att-fp-${Date.now()}`,
+      const activeShift = getCurrentActiveShift(getStoredScheduleSettings(), now);
+
+      const savedRecord = saveAttendanceRecord({
         studentId: student.id,
         studentName: student.nameBangla,
         roll: student.roll,
@@ -102,10 +119,10 @@ export const FingerprintScannerModal: React.FC<FingerprintScannerModalProps> = (
         status,
         method: 'Fingerprint',
         confidenceScore: 0.98,
-        notes: `ফিঙ্গারপ্রিন্ট রিডার (${deviceType === 'usb_mantra' ? 'Mantra MFS100' : deviceType === 'usb_zkteco' ? 'ZKTeco SLK20R' : deviceType === 'ip_machine' ? 'ZKTeco IP Machine' : 'Touch ID / Built-in Sensor'}) এর মাধ্যমে সনাক্তকৃত`
-      };
+        notes: `ফিঙ্গারপ্রিন্ট রিডার (${deviceType === 'usb_mantra' ? 'Mantra MFS100' : deviceType === 'usb_zkteco' ? 'ZKTeco SLK20R' : deviceType === 'ip_machine' ? 'ZKTeco IP Machine' : 'মোবাইল/বিল্ট-ইন বায়োমেট্রিক সেন্সর'}) এর মাধ্যমে সনাক্তকৃত (শিফট: ${activeShift?.nameBangla || 'সাধারণ'})`
+      });
 
-      onAttendanceUpdated(newRecord);
+      onAttendanceUpdated(savedRecord);
 
       const resultObj = {
         matched: true,
@@ -123,7 +140,7 @@ export const FingerprintScannerModal: React.FC<FingerprintScannerModalProps> = (
       if (soundEnabled) {
         speakBengaliText(`${student.nameBangla}, আপনার উপস্থিতি সফলভাবে গৃহীত হয়েছে।`);
       }
-    }, 1500);
+    }, 1000);
   };
 
   return (

@@ -206,7 +206,19 @@ export const isFaceActuallyRegistered = (student: Student | null | undefined): b
 
 export const isFingerprintActuallyRegistered = (student: Student | null | undefined): boolean => {
   if (!student) return false;
+  // If status is specifically Rejected or None, it's not active
+  if (student.fingerprintStatus === 'Rejected' || student.fingerprintStatus === 'None') return false;
   return Boolean(student.fingerprintRegistered);
+};
+
+export const isFingerprintApproved = (student: Student | null | undefined): boolean => {
+  if (!student) return false;
+  return Boolean(student.fingerprintRegistered) && (student.fingerprintStatus === 'Approved' || student.fingerprintStatus === undefined);
+};
+
+export const isFingerprintPendingApproval = (student: Student | null | undefined): boolean => {
+  if (!student) return false;
+  return Boolean(student.fingerprintRegistered) && student.fingerprintStatus === 'Pending';
 };
 
 /**

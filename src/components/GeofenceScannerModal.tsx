@@ -1,405 +1,486 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Camera, MapPin, ShieldCheck, AlertTriangle, RefreshCw, CheckCircle2, Navigation, Radio, Clock } from 'lucide-react';
-import { Student, AttendanceRecord, AttendanceStatus, OrganizationScheduleSettings } from '../types';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  MapPin, 
+  ShieldCheck, 
+  AlertCircle, 
+  RefreshCw, 
+  CheckCircle2, 
+  Navigation, 
+  Radio, 
+  Compass, 
+  Wifi, 
+  Save, 
+  Sliders, 
+  Building2, 
+  Sparkles, 
+  Check, 
+  AlertTriangle,
+  Layers,
+  Info
+} from 'lucide-react';
+import { OrganizationScheduleSettings, GeofenceSettings } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { calculateDistanceMeters, getCurrentActiveShift, formatTimeInBangla } from '../utils/scheduleConfig';
+import { calculateDistanceMeters, getStoredScheduleSettings } from '../utils/scheduleConfig';
 
 interface GeofenceScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  students: Student[];
   orgInfo: OrgCategoryInfo;
-  onAttendanceUpdated: (record: AttendanceRecord) => void;
   scheduleSettings?: OrganizationScheduleSettings;
+  onSaveSettings?: (newSettings: OrganizationScheduleSettings) => void;
 }
 
 export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
   isOpen,
   onClose,
-  students,
   orgInfo,
-  onAttendanceUpdated,
   scheduleSettings,
+  onSaveSettings,
 }) => {
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [capturedSelfie, setCapturedSelfie] = useState<string | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
-  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number; accuracy: number; address: string } | null>(null);
-  const [isGpsLoading, setIsGpsLoading] = useState<boolean>(false);
-  const [isWithinGeofence, setIsWithinGeofence] = useState<boolean>(true);
-  const [fakeGpsDetected, setFakeGpsDetected] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string>('');
-  const [isSuccess, setIsSuccess] = useState<boolean>(false);
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Target Org Geofence Coordinates (From Settings or fallback)
-  const targetGeofence = {
-    lat: scheduleSettings?.geofence.latitude || 23.777176,
-    lng: scheduleSettings?.geofence.longitude || 90.399452,
-    radiusMeters: scheduleSettings?.geofence.radiusMeters || 200,
-    name: scheduleSettings?.geofence.locationName || 'প্রধান কার্যালয় / ক্যাম্পাস জিওফেন্স জোন',
-    address: scheduleSettings?.geofence.address || 'ঢাকা'
-  };
-
-  const activeShift = scheduleSettings ? getCurrentActiveShift(scheduleSettings) : null;
-
+  const currentSettings = scheduleSettings || getStoredScheduleSettings();
+  const [localGeofence, setLocalGeofence] = useState<GeofenceSettings>(currentSettings.geofence);
+  
+  // Real-time GPS verification states
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [userLiveCoords, setUserLiveCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [liveDistance, setLiveDistance] = useState<number | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      if (students.length > 0) {
-        setSelectedStudentId(students[0].id);
-      }
-      fetchGpsLocation();
-      startCamera();
-    } else {
-      stopCamera();
-      setCapturedSelfie(null);
-      setIsSuccess(false);
+      const active = scheduleSettings || getStoredScheduleSettings();
+      setLocalGeofence(active.geofence);
+      setGpsError(null);
+      // Auto test user's current distance on modal open
+      fetchUserCurrentLocation();
     }
-  }, [isOpen]);
-
-  const fetchGpsLocation = () => {
-    setIsGpsLoading(true);
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const accuracy = Math.round(pos.coords.accuracy || 15);
-          
-          setGpsLocation({
-            lat,
-            lng,
-            accuracy,
-            address: `Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)} (যাচাইকৃত স্যাটেলাইট জিও-ট্যাগ)`
-          });
-          setIsGpsLoading(false);
-          setIsWithinGeofence(true);
-          setFakeGpsDetected(false);
-        },
-        (error) => {
-          console.warn('Geolocation fallback:', error);
-          // Fallback realistic location
-          setGpsLocation({
-            lat: 23.7781,
-            lng: 90.3989,
-            accuracy: 12,
-            address: 'ধানমন্ডি ক্যাম্পাস / কেন্দ্রীয় কার্যালয় জোন (GPS Active)'
-          });
-          setIsGpsLoading(false);
-          setIsWithinGeofence(true);
-          setFakeGpsDetected(false);
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    } else {
-      setIsGpsLoading(false);
-      setGpsLocation({
-        lat: 23.7781,
-        lng: 90.3989,
-        accuracy: 15,
-        address: 'ঢাকা সদর দপ্তর জিও-লোকেশন (Verified)'
-      });
-    }
-  };
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-      }
-    } catch (err) {
-      console.error('Camera access error:', err);
-      setIsCameraActive(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-  };
-
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setCapturedSelfie(dataUrl);
-    }
-  };
-
-  const handleToggleFakeGpsTest = () => {
-    setFakeGpsDetected(!fakeGpsDetected);
-    if (!fakeGpsDetected) {
-      setIsWithinGeofence(false);
-      setStatusMessage('সতর্কতা: ভুয়া জিপিএস (Fake Location Mocking) সনাক্ত হয়েছে!');
-    } else {
-      setIsWithinGeofence(true);
-      setStatusMessage('');
-    }
-  };
-
-  const handleConfirmAttendance = () => {
-    const selectedStudent = students.find((s) => s.id === selectedStudentId);
-    if (!selectedStudent) return;
-
-    if (fakeGpsDetected || !isWithinGeofence) {
-      alert('ভুয়া জিপিএস বা নির্ধারিত সীমানার বাইরে থাকার কারণে হাজিরা বাতিল করা হয়েছে!');
-      return;
-    }
-
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-    const newRecord: AttendanceRecord = {
-      id: `att-gps-${Date.now()}`,
-      studentId: selectedStudent.id,
-      studentName: selectedStudent.nameBangla,
-      roll: selectedStudent.roll,
-      classId: selectedStudent.classId,
-      className: selectedStudent.className,
-      date: dateStr,
-      time: timeStr,
-      status: 'Present',
-      method: 'GPS Selfie',
-      confidenceScore: 0.98,
-      snapshotUrl: capturedSelfie || selectedStudent.photoUrl,
-      verifiedByAI: true,
-      latitude: gpsLocation?.lat,
-      longitude: gpsLocation?.lng,
-      locationName: gpsLocation?.address || targetGeofence.name,
-      geofenceValid: true,
-      fakeGpsDetected: false,
-      notes: `স্মার্ট সেলফি + জিওফেন্স হাজিরা গ্রহণ করা হয়েছে (${gpsLocation?.address || 'Verified'})`
-    };
-
-    onAttendanceUpdated(newRecord);
-    setIsSuccess(true);
-    setTimeout(() => {
-      onClose();
-    }, 1500);
-  };
+  }, [isOpen, scheduleSettings]);
 
   if (!isOpen) return null;
 
-  const currentMember = students.find((s) => s.id === selectedStudentId);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const fetchUserCurrentLocation = () => {
+    setIsLocating(true);
+    setGpsError(null);
+
+    if (!('geolocation' in navigator)) {
+      setGpsError('আপনার ব্রাউজারে জিও-লোকেশন সাপোর্ট নেই।');
+      setIsLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = parseFloat(pos.coords.latitude.toFixed(6));
+        const lng = parseFloat(pos.coords.longitude.toFixed(6));
+        const accuracy = Math.round(pos.coords.accuracy || 10);
+
+        setUserLiveCoords({ lat, lng, accuracy });
+        
+        // Calculate distance from target geofence
+        const dist = Math.round(calculateDistanceMeters(lat, lng, localGeofence.latitude, localGeofence.longitude));
+        setLiveDistance(dist);
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn('Geolocation read error:', err);
+        setGpsError('GPS লোকেশন এক্সেস পাওয়া যায়নি। অনুগ্রহ করে ব্রাউজারে লোকেশন পারমিশন অন করুন।');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleCaptureAsOfficeCoordinates = () => {
+    setIsLocating(true);
+    setGpsError(null);
+
+    if (!('geolocation' in navigator)) {
+      setGpsError('আপনার ব্রাউজারে জিও-লোকেশন সাপোর্ট নেই।');
+      setIsLocating(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = parseFloat(pos.coords.latitude.toFixed(6));
+        const lng = parseFloat(pos.coords.longitude.toFixed(6));
+        const accuracy = Math.round(pos.coords.accuracy || 10);
+
+        setUserLiveCoords({ lat, lng, accuracy });
+        setLocalGeofence(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+        }));
+        setLiveDistance(0);
+        setIsLocating(false);
+        showToast(`সফলভাবে বর্তমান GPS লোকেশন সেট করা হয়েছে (Lat: ${lat}, Lng: ${lng})`);
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+        setGpsError('GPS লোকেশন পাওয়া যায়নি। অনুগ্রহ করে ডিভাইস লোকেশন অন করুন।');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const handleSaveAll = () => {
+    const updatedFullSettings: OrganizationScheduleSettings = {
+      ...currentSettings,
+      geofence: localGeofence
+    };
+
+    if (onSaveSettings) {
+      onSaveSettings(updatedFullSettings);
+    }
+    showToast('অফিস পরিধি সীমানা ও GPS জিওফেন্স সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
+    setTimeout(() => {
+      onClose();
+    }, 800);
+  };
+
+  const isWithinRadius = liveDistance !== null ? liveDistance <= localGeofence.radiusMeters : true;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+      
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-60 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl flex items-center space-x-2 animate-slideDown">
+          <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border-2 border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col my-auto overflow-hidden animate-scaleUp">
         
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
+            <div className="p-2.5 bg-gradient-to-tr from-emerald-600 to-teal-500 text-white rounded-2xl shadow-md">
               <MapPin className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base">স্মার্ট ফটো + জিপিএস জিওফেন্স হাজিরা</h3>
-              <p className="text-xs text-slate-300">সেলফি ভেরিফিকেশন ও লাইভ লোকেশন ট্যাগিং</p>
+              <div className="flex items-center space-x-2">
+                <h2 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">
+                  GPS ও জিওফেন্সিং কনফিগারেশন
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                  পরিধি সীমানা
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                অফিস / ক্যাম্পাস পরিধি সীমানা, GPS কোঅর্ডিনেট ও লোকেশন ভেরিফিকেশন
+              </p>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition cursor-pointer"
+            title="বন্ধ করুন"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+        {/* Modal Scrollable Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs text-slate-800 dark:text-slate-200">
           
-          {/* Member Selector */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              {orgInfo.terminology.memberLabel} নির্বাচন করুন:
+          {/* Section 1: Master Geofence Toggle */}
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-2xl border border-emerald-200 dark:border-emerald-800/60">
+            <div className="space-y-0.5 pr-2">
+              <p className="font-extrabold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                GPS জিওফেন্সিং ভেরিফিকেশন সক্রিয় করুন
+              </p>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                সক্রিয় থাকলে কর্মীরা শুধুমাত্র অনুমোদিত অফিস/ক্যাম্পাস সীমানার ভেতর থেকে হাজিরা দিতে পারবেন।
+              </p>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={localGeofence.enabled}
+                onChange={(e) => setLocalGeofence(prev => ({ ...prev, enabled: e.target.checked }))}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
             </label>
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
-            >
-              {students.map((std) => (
-                <option key={std.id} value={std.id}>
-                  {std.nameBangla} ({orgInfo.terminology.idLabel}: {std.roll}) - {std.className}
-                </option>
-              ))}
-            </select>
           </div>
 
-          {/* GPS Location & Geofence Bar */}
-          <div className={`p-4 rounded-xl border transition ${
-            fakeGpsDetected || !isWithinGeofence
-              ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
-          }`}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-3">
-                <Navigation className={`w-5 h-5 mt-0.5 animate-pulse ${fakeGpsDetected ? 'text-rose-600' : 'text-emerald-600'}`} />
-                <div>
-                  <h4 className="font-bold text-sm flex items-center gap-2">
-                    <span>{targetGeofence.name}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
-                      ব্যাসার্ধ: {targetGeofence.radiusMeters} মি
-                    </span>
-                  </h4>
-                  <p className="text-xs mt-1 opacity-90">
-                    {isGpsLoading ? 'জিপিএস লোকেশন রিড করা হচ্ছে...' : gpsLocation?.address}
-                  </p>
-                  {activeShift && (
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold mt-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-emerald-500" />
-                      <span>চলমান শিফট: {activeShift.nameBangla} ({formatTimeInBangla(activeShift.startTime)} - {formatTimeInBangla(activeShift.endTime)})</span>
-                    </p>
-                  )}
-                  <p className="text-[11px] font-mono mt-0.5 opacity-75">
-                    সঠিকতা (Accuracy): ±{gpsLocation?.accuracy || 10} মি | স্যাটেলাইট সিগন্যাল: স্ট্রং
-                  </p>
-                </div>
+          {/* Section 2: Real-time GPS Coordinate Auto-Capture */}
+          <div className="bg-teal-50/70 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 rounded-2xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="font-extrabold text-xs text-teal-950 dark:text-teal-200 flex items-center gap-1.5">
+                  <Compass className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  বর্তমান অবস্থান থেকে স্বয়ংক্রিয় GPS কোঅর্ডিনেট সেট করুন
+                </p>
+                <p className="text-[11px] text-slate-700 dark:text-slate-400 font-medium">
+                  আপনি যদি বর্তমানে অফিসে থাকেন, তবে নিচের বাটনে ক্লিক করলে বর্তমান অক্ষাংশ ও দ্রাঘিমাংশ স্বয়ংক্রিয়ভাবে বসে যাবে।
+                </p>
               </div>
+
               <button
-                onClick={fetchGpsLocation}
-                disabled={isGpsLoading}
-                className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center space-x-1"
+                onClick={handleCaptureAsOfficeCoordinates}
+                disabled={isLocating}
+                className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl flex items-center space-x-1.5 shadow-md transition cursor-pointer shrink-0"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isGpsLoading ? 'animate-spin' : ''}`} />
-                <span>রিফ্রেশ</span>
+                {isLocating ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>GPS খোঁজা হচ্ছে...</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>আমার বর্তমান GPS লোকেশন নিন</span>
+                  </>
+                )}
               </button>
             </div>
 
-            {/* Fake GPS Detection Toggle for Testing */}
-            <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
-              <span className="text-slate-600 dark:text-slate-400 font-medium">
-                🛡️ Fake GPS Fraud Detection System Active
-              </span>
-              <button
-                onClick={handleToggleFakeGpsTest}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
-                  fakeGpsDetected
-                    ? 'bg-rose-600 text-white border-rose-600'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300'
-                }`}
-              >
-                {fakeGpsDetected ? '⚠️ Fake GPS টেস্ট চালু' : '🧪 Fake GPS টেস্ট করুন'}
-              </button>
+            {gpsError && (
+              <div className="p-2.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl text-xs flex items-center space-x-2 font-bold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{gpsError}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Section 3: Coordinates & Location Information */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="sm:col-span-1">
+              <label className="block font-extrabold text-slate-900 dark:text-slate-100 mb-1.5">
+                অফিস / ক্যাম্পাস নাম *
+              </label>
+              <input
+                type="text"
+                value={localGeofence.name || ''}
+                onChange={(e) => setLocalGeofence(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="যেমন: প্রধান কার্যালয়, ঢাকা"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="block font-extrabold text-slate-900 dark:text-slate-100 mb-1.5">
+                ল্যাটিটিউড (Latitude) *
+              </label>
+              <input
+                type="number"
+                step="0.000001"
+                value={localGeofence.latitude}
+                onChange={(e) => setLocalGeofence(prev => ({ ...prev, latitude: parseFloat(e.target.value) || 0 }))}
+                placeholder="23.777176"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:outline-hidden"
+              />
+            </div>
+
+            <div>
+              <label className="block font-extrabold text-slate-900 dark:text-slate-100 mb-1.5">
+                লঙ্গিটিউড (Longitude) *
+              </label>
+              <input
+                type="number"
+                step="0.000001"
+                value={localGeofence.longitude}
+                onChange={(e) => setLocalGeofence(prev => ({ ...prev, longitude: parseFloat(e.target.value) || 0 }))}
+                placeholder="90.399452"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:outline-hidden"
+              />
             </div>
           </div>
 
-          {/* Camera / Selfie Box */}
-          <div className="space-y-3">
+          {/* Section 4: Boundary Radius (Meters) Slider */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Camera className="w-4 h-4 text-emerald-500" />
-                <span>লাইভ সেলফি ক্যাপচার (ক্যামেরা থেকে সরাসরি)</span>
-              </span>
-              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200">
-                🚫 গ্যালারি থেকে ছবি আপলোড নিষিদ্ধ
+              <label className="font-extrabold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                <Radio className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                অনুমোদিত পরিধি ব্যাসার্ধ (Allowed Radius):
+              </label>
+              <span className="px-3 py-1 bg-emerald-600 text-white font-mono font-black text-xs rounded-xl shadow-xs">
+                {localGeofence.radiusMeters} মিটার
               </span>
             </div>
 
-            <div className="relative aspect-video w-full bg-slate-950 rounded-2xl overflow-hidden border-2 border-dashed border-slate-700 flex items-center justify-center">
-              {capturedSelfie ? (
-                <div className="relative w-full h-full">
-                  <img src={capturedSelfie} alt="Selfie" className="w-full h-full object-cover" />
-                  
-                  {/* Realtime Geo-Stamp Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3 bg-slate-900/85 backdrop-blur-md p-2.5 rounded-xl text-white text-xs space-y-0.5 border border-white/20">
-                    <div className="flex items-center justify-between font-bold text-emerald-400 text-[11px]">
-                      <span>{currentMember?.nameBangla} ({currentMember?.roll})</span>
-                      <span>{new Date().toLocaleTimeString()}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-300 truncate">
-                      📍 {gpsLocation?.address}
-                    </div>
+            <input
+              type="range"
+              min={20}
+              max={1000}
+              step={10}
+              value={localGeofence.radiusMeters}
+              onChange={(e) => setLocalGeofence(prev => ({ ...prev, radiusMeters: parseInt(e.target.value) }))}
+              className="w-full h-2 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+            />
+
+            <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
+              <span>২০ মিটার (টাইট জোন)</span>
+              <span>২০০ মিটার (স্ট্যান্ডার্ড ক্যাম্পাস)</span>
+              <span>১০০০ মিটার (বড় এলাকা)</span>
+            </div>
+          </div>
+
+          {/* Section 5: Real-time Live Distance & Radar Verification Feedback */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                <span className="font-extrabold text-xs text-slate-900 dark:text-slate-100">
+                  লাইভ লোকেশন ও দূরত্ব ভেরিফিকেশন
+                </span>
+              </div>
+
+              <button
+                onClick={fetchUserCurrentLocation}
+                disabled={isLocating}
+                className="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 font-bold text-[11px] rounded-lg flex items-center space-x-1 transition cursor-pointer"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
+                <span>রিফ্রেশ টেস্ট</span>
+              </button>
+            </div>
+
+            {userLiveCoords ? (
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <p className="text-[10px] text-slate-500 font-bold">আপনার বর্তমান লাইভ জিপিএস</p>
+                    <p className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs">
+                      {userLiveCoords.lat}, {userLiveCoords.lng}
+                    </p>
+                    <p className="text-[10px] text-teal-600 dark:text-teal-400 font-bold mt-0.5">
+                      নির্ভুলতা: ±{userLiveCoords.accuracy} মিটার
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <p className="text-[10px] text-slate-500 font-bold">অফিস কেন্দ্রবিন্দু থেকে দূরত্ব</p>
+                    <p className="font-mono font-black text-slate-900 dark:text-white text-sm">
+                      {liveDistance !== null ? `${liveDistance} মিটার` : 'গণনা করা হচ্ছে...'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      অনুমোদিত সর্বোচ্চ: {localGeofence.radiusMeters} মিটার
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-                  {!isCameraActive && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                      <Camera className="w-10 h-10 mb-2 opacity-50" />
-                      <p className="text-xs font-medium">ক্যামেরা চালু করা হচ্ছে...</p>
-                    </div>
+
+                {/* Status Indicator Banner */}
+                <div className={`p-3 rounded-xl flex items-center space-x-2.5 border font-bold text-xs ${
+                  isWithinRadius
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+                }`}>
+                  {isWithinRadius ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <div>
+                        <p>✓ আপনি বর্তমানে অনুমোদিত অফিস পরিধির ভিতরে অবস্থান করছেন।</p>
+                        <p className="text-[10px] font-normal opacity-80">কর্মীরা এই অবস্থানে থেকে সফলভাবে হাজিরা দিতে সক্ষম হবেন।</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                      <div>
+                        <p>⚠ আপনি বর্তমানে নির্ধারিত অফিস সীমানার বাইরে ({liveDistance} মিটার দূরে) আছেন!</p>
+                        <p className="text-[10px] font-normal opacity-80">কড়া জিওফেন্সিং সক্রিয় থাকলে এই অবস্থান থেকে হাজিরা সাবমিট হবে না।</p>
+                      </div>
+                    </>
                   )}
-                </>
-              )}
-              <canvas ref={canvasRef} className="hidden" />
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl text-center text-slate-500 text-xs border border-slate-200 dark:border-slate-700">
+                {isLocating ? 'স্যাটেলাইট জিপিএস সিগন্যাল যাচাই করা হচ্ছে...' : 'লাইভ দূরত্ব যাচাই করতে উপরের বাটনে চাপুন।'}
+              </div>
+            )}
+          </div>
+
+          {/* Section 6: Additional Security Rules */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="strictGeofenceCheck"
+                checked={localGeofence.strictMode}
+                onChange={(e) => setLocalGeofence(prev => ({ ...prev, strictMode: e.target.checked }))}
+                className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <div>
+                <label htmlFor="strictGeofenceCheck" className="font-extrabold text-xs text-slate-900 dark:text-slate-100 cursor-pointer">
+                  কড়া জিওফেন্স এনফোর্সমেন্ট (Strict Mode)
+                </label>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                  পরিধির বাইরে থাকলে কোনোভাবেই হাজিরা গ্রহণ করা হবে না।
+                </p>
+              </div>
             </div>
 
-            {/* Selfie Buttons */}
-            <div className="flex items-center space-x-3">
-              {capturedSelfie ? (
-                <button
-                  onClick={() => setCapturedSelfie(null)}
-                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs hover:bg-slate-200 transition"
-                >
-                  পুনরায় সেলফি তুলুন
-                </button>
-              ) : (
-                <button
-                  onClick={capturePhoto}
-                  disabled={!isCameraActive}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 transition flex items-center justify-center space-x-2"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>সেলফি ক্লিক করুন</span>
-                </button>
-              )}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="blockMockGpsCheck"
+                checked={localGeofence.blockMockLocations}
+                onChange={(e) => setLocalGeofence(prev => ({ ...prev, blockMockLocations: e.target.checked }))}
+                className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+              />
+              <div>
+                <label htmlFor="blockMockGpsCheck" className="font-extrabold text-xs text-slate-900 dark:text-slate-100 cursor-pointer">
+                  মক / ফেক GPS লোকেশন অ্যাপ প্রতিরোধ
+                </label>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                  মোবাইলে Fake GPS স্পুফিং অ্যাপ স্বয়ংক্রিয়ভাবে ব্লক করবে।
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Success Notification */}
-          {isSuccess && (
-            <div className="p-3 bg-emerald-500 text-white rounded-xl flex items-center justify-center space-x-2 text-xs font-bold animate-bounce">
-              <CheckCircle2 className="w-5 h-5" />
-              <span>স্মার্ট হাজিরা সফলভাবে জিও-ট্যাগ সহ সংরক্ষিত হয়েছে!</span>
-            </div>
-          )}
+          {/* Section 7: Wi-Fi Restriction (Optional) */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+            <label className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center space-x-1.5 text-xs">
+              <Wifi className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+              <span>অফিস Wi-Fi নেটওয়ার্ক রেস্ট্রিকশন (ঐচ্ছিক SSID)</span>
+            </label>
+            <input
+              type="text"
+              value={localGeofence.wifiSSID || ''}
+              onChange={(e) => setLocalGeofence(prev => ({ ...prev, wifiSSID: e.target.value }))}
+              placeholder="যেমন: Office_WiFi_5G"
+              className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:outline-hidden"
+            />
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              কর্মীরা নির্দিষ্ট অফিস ওয়াই-ফাইতে কানেক্টেড থাকলে লোকেশন দ্রুত ভেরিফাই করা হবে।
+            </p>
+          </div>
 
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl"
+            className="px-4 py-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl transition cursor-pointer"
           >
             বাতিল
           </button>
+
           <button
-            onClick={handleConfirmAttendance}
-            disabled={!capturedSelfie || fakeGpsDetected || !isWithinGeofence}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
-              capturedSelfie && !fakeGpsDetected && isWithinGeofence
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20'
-                : 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-            }`}
+            onClick={handleSaveAll}
+            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs rounded-xl flex items-center space-x-2 shadow-lg shadow-emerald-950/20 cursor-pointer transition active:scale-95 border border-emerald-400/30"
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>হাজিরা কনফার্ম করুন</span>
+            <Save className="w-4 h-4" />
+            <span>পরিবর্তন সংরক্ষণ করুন</span>
           </button>
         </div>
 

@@ -69,7 +69,12 @@ export const SmartIdCardModal: React.FC<SmartIdCardModalProps> = ({
     );
   }
 
-  const photoUrl = currentStudent.faceImage || currentStudent.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
+  const photoUrl = currentStudent.photoUrl || currentStudent.faceImage || '';
+  const [imageError, setImageError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [currentStudent?.id, photoUrl]);
 
   // Handle Single Card Printing
   const handlePrintSingleCard = () => {
@@ -190,14 +195,18 @@ export const SmartIdCardModal: React.FC<SmartIdCardModalProps> = ({
               {/* Photo */}
               <div className="relative">
                 <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-emerald-400 shadow-lg bg-slate-800 flex items-center justify-center font-bold text-xl text-emerald-400">
-                  <img
-                    src={photoUrl}
-                    alt={currentStudent.nameBangla}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
+                  {photoUrl && !imageError ? (
+                    <img
+                      src={photoUrl}
+                      alt={currentStudent.nameBangla}
+                      className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
+                    />
+                  ) : (
+                    <span className="text-2xl font-black text-emerald-400">
+                      {currentStudent.nameBangla ? currentStudent.nameBangla.charAt(0) : 'স'}
+                    </span>
+                  )}
                 </div>
                 <span className="absolute bottom-0 right-0 p-1 bg-emerald-500 text-slate-950 rounded-full shadow">
                   <Shield className="w-3.5 h-3.5 stroke-[2.5]" />

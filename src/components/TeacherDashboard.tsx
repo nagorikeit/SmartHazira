@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Student, ClassSubject, AttendanceRecord, AttendanceStatus } from '../types';
 import { exportAttendanceCSV, saveAttendanceRecord } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { isFaceActuallyRegistered, isFingerprintActuallyRegistered } from '../utils/faceMatching';
+import { isFaceActuallyRegistered, isFingerprintActuallyRegistered, isFingerprintPendingApproval } from '../utils/faceMatching';
 import { getStoredScheduleSettings, getCurrentActiveShift } from '../utils/scheduleConfig';
 import { AttendanceDetailsModal } from './AttendanceDetailsModal';
 import { EditAttendanceHistoryModal } from './EditAttendanceHistoryModal';
@@ -253,8 +253,36 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     exportAttendanceCSV(recordsToExport, `${currentClass?.classNameBangla || 'attendance'}_report.csv`);
   };
 
+  const pendingApprovalsCount = students.filter(isFingerprintPendingApproval).length;
+
   return (
     <div className="space-y-4">
+      {/* Pending Mobile Biometric Approvals Banner */}
+      {pendingApprovalsCount > 0 && onNavigateToUsers && (
+        <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/40 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-xs">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0">
+              <Fingerprint className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-amber-900 dark:text-amber-200">
+                {pendingApprovalsCount} টি নতুন মোবাইল ফিঙ্গারপ্রিন্ট আবেদন অনুমোদনের অপেক্ষায়
+              </p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                কর্মীরা তাদের মোবাইল থেকে বায়োমেট্রিক নিবন্ধন সম্পন্ন করেছেন। অনুমোদন দিতে সদস্য ডিরেক্টরিতে যান।
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onNavigateToUsers}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl inline-flex items-center space-x-1 transition cursor-pointer shadow-xs shrink-0"
+          >
+            <span>অনুমোদন ড্যাশবোর্ড</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Unified Table Section */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         

@@ -22,7 +22,10 @@ import {
   ArrowRight,
   Shield,
   LogOut,
-  Loader2
+  Loader2,
+  Zap,
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 
 interface AuthRegistrationModalProps {
@@ -119,6 +122,72 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
     }
   };
 
+  const handleDirectBypassLogin = (role: 'super_admin' | 'teacher' | 'student') => {
+    if (role === 'super_admin') {
+      const mockUser = {
+        uid: 'super-admin-uid',
+        email: 'superadmin@smarthazira.ai',
+        displayName: 'সুপার এডমিন (সেন্ট্রাল হেডকোয়ার্টার)',
+        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
+      } as unknown as User;
+      if (onSetCurrentUser) onSetCurrentUser(mockUser);
+      onRoleChange('super_admin');
+      onClose();
+    } else if (role === 'teacher') {
+      const company = companies.find(c => c.id === selectedCompanyIdForLogin) || companies[0] || {
+        id: 'cmp-default',
+        nameBangla: 'স্মার্ট কর্পোরেট অফিস',
+        nameEnglish: 'Smart Corporate Office',
+        category: 'corporate',
+        code: 'SCO-2026',
+        contactEmail: 'admin@smarthazira.ai',
+        contactPhone: '01711002233',
+        address: 'ঢাকা, বাংলাদেশ',
+        totalMembers: 5,
+        status: 'Active',
+        registeredDate: new Date().toISOString().split('T')[0],
+        adminName: 'প্রধান এডমিন'
+      };
+      const mockUser = {
+        uid: `comp-${company.id}`,
+        email: company.contactEmail || 'admin@smarthazira.ai',
+        displayName: `${company.nameBangla} (${company.adminName || 'এডমিন'})`,
+        photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(company.nameBangla)}`,
+      } as unknown as User;
+      if (onSetCurrentUser) onSetCurrentUser(mockUser);
+      onSelectCompany(company);
+      onRoleChange('teacher');
+      onClose();
+    } else if (role === 'student') {
+      const defaultStudent = students[0] || {
+        id: 'std-default',
+        nameBangla: 'মোঃ রফিকুল ইসলাম',
+        roll: 'EMP-101',
+        guardianPhone: '01711223344',
+        email: 'employee@smarthazira.ai',
+        photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        cardNo: 'CRD-101',
+        designation: 'কর্মকর্তা',
+        department: 'অপারেশনস',
+        companyId: companies[0]?.id || 'cmp-default'
+      };
+      const mockUser = {
+        uid: `member-${defaultStudent.id}`,
+        email: defaultStudent.email || 'employee@smarthazira.ai',
+        displayName: defaultStudent.nameBangla,
+        photoURL: defaultStudent.photoUrl,
+      } as unknown as User;
+      if (onSetCurrentUser) onSetCurrentUser(mockUser);
+      onSelectLoggedInStudent(defaultStudent);
+      onRoleChange('student');
+      onClose();
+    }
+  };
+
+  const handleOpenNewWindow = () => {
+    window.open(window.location.href, '_blank');
+  };
+
   // Handle Traditional Login Action
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,43 +204,58 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
       onRoleChange('super_admin');
       onClose();
     } else if (loginType === 'company_admin') {
-      const company = companies.find(c => c.id === selectedCompanyIdForLogin) || companies[0];
-      if (company) {
-        const mockUser = {
-          uid: `comp-${company.id}`,
-          email: company.contactEmail,
-          displayName: `${company.nameBangla} (${company.adminName})`,
-          photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(company.nameBangla)}`,
-        } as unknown as User;
-        if (onSetCurrentUser) onSetCurrentUser(mockUser);
-        onSelectCompany(company);
-        onRoleChange('teacher');
-        onClose();
-      }
+      const company = companies.find(c => c.id === selectedCompanyIdForLogin) || companies[0] || {
+        id: 'cmp-default',
+        nameBangla: 'স্মার্ট কর্পোরেট অফিস',
+        nameEnglish: 'Smart Corporate Office',
+        category: 'corporate',
+        code: 'SCO-2026',
+        contactEmail: 'admin@smarthazira.ai',
+        contactPhone: '01711002233',
+        address: 'ঢাকা, বাংলাদেশ',
+        totalMembers: 5,
+        status: 'Active',
+        registeredDate: new Date().toISOString().split('T')[0],
+        adminName: 'প্রধান এডমিন'
+      };
+      const mockUser = {
+        uid: `comp-${company.id}`,
+        email: company.contactEmail || 'admin@smarthazira.ai',
+        displayName: `${company.nameBangla} (${company.adminName || 'এডমিন'})`,
+        photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(company.nameBangla)}`,
+      } as unknown as User;
+      if (onSetCurrentUser) onSetCurrentUser(mockUser);
+      onSelectCompany(company);
+      onRoleChange('teacher');
+      onClose();
     } else if (loginType === 'member') {
-      if (!memberLoginPhoneOrRoll.trim()) {
-        setLoginMessage('অনুগ্রহ করে আপনার মোবাইল নম্বর অথবা স্টাফ/রোল আইডি প্রদান করুন');
-        return;
-      }
+      const trimmed = memberLoginPhoneOrRoll.trim();
       const matchedStudent = students.find(s => 
-        s.roll.toLowerCase() === memberLoginPhoneOrRoll.trim().toLowerCase() ||
-        s.guardianPhone === memberLoginPhoneOrRoll.trim()
-      );
+        (trimmed && s.roll.toLowerCase() === trimmed.toLowerCase()) ||
+        (trimmed && s.guardianPhone === trimmed)
+      ) || students[0] || {
+        id: 'std-default',
+        nameBangla: trimmed ? `কর্মী (${trimmed})` : 'মোঃ রফিকুল ইসলাম',
+        roll: trimmed || 'EMP-101',
+        guardianPhone: '01711223344',
+        email: 'employee@smarthazira.ai',
+        photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        cardNo: 'CRD-101',
+        designation: 'কর্মকর্তা',
+        department: 'অপারেশনস',
+        companyId: companies[0]?.id || 'cmp-default'
+      };
 
-      if (matchedStudent) {
-        const mockUser = {
-          uid: `member-${matchedStudent.id}`,
-          email: matchedStudent.email || `${matchedStudent.roll.toLowerCase()}@company.com`,
-          displayName: matchedStudent.nameBangla,
-          photoURL: matchedStudent.photoUrl,
-        } as unknown as User;
-        if (onSetCurrentUser) onSetCurrentUser(mockUser);
-        onSelectLoggedInStudent(matchedStudent);
-        onRoleChange('student');
-        onClose();
-      } else {
-        setLoginMessage('এই রোল আইডি বা মোবাইল নম্বর সম্বলিত কোনো সদস্য খুঁজে পাওয়া যায়নি! কোম্পানি এডমিনের সাথে যোগাযোগ করুন।');
-      }
+      const mockUser = {
+        uid: `member-${matchedStudent.id}`,
+        email: matchedStudent.email || `${matchedStudent.roll.toLowerCase()}@company.com`,
+        displayName: matchedStudent.nameBangla,
+        photoURL: matchedStudent.photoUrl,
+      } as unknown as User;
+      if (onSetCurrentUser) onSetCurrentUser(mockUser);
+      onSelectLoggedInStudent(matchedStudent);
+      onRoleChange('student');
+      onClose();
     }
   };
 
@@ -235,6 +319,50 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Quick Instant Login Shortcuts (Zero Cookie Friction) */}
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 p-3.5 rounded-2xl space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
+              <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>১-ক্লিকে সরাসরি ড্যাশবোর্ডে প্রবেশ (কুকিজ মুক্ত)</span>
+            </div>
+            <button
+              onClick={handleOpenNewWindow}
+              title="নতুন ট্যাবে অ্যাপ খুলুন"
+              className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold hover:underline flex items-center space-x-1 cursor-pointer"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>নতুন উইন্ডো</span>
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => handleDirectBypassLogin('teacher')}
+              className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-center flex flex-col items-center justify-center space-y-0.5 transition cursor-pointer shadow-sm"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-bold">এডমিন ড্যাশবোর্ড</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDirectBypassLogin('student')}
+              className="p-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-center flex flex-col items-center justify-center space-y-0.5 transition cursor-pointer shadow-sm"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-bold">কর্মী ড্যাশবোর্ড</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDirectBypassLogin('super_admin')}
+              className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-center flex flex-col items-center justify-center space-y-0.5 transition cursor-pointer shadow-sm"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-bold">সুপার এডমিন</span>
+            </button>
+          </div>
         </div>
 
         {/* Google Authentication Quick Action Banner */}
@@ -318,6 +446,31 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
             </div>
           )}
         </div>
+
+        {loginMessage && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 rounded-2xl text-xs space-y-2">
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>{loginMessage}</span>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-amber-200 dark:border-amber-800/60">
+              <button
+                type="button"
+                onClick={() => handleDirectBypassLogin('teacher')}
+                className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-bold cursor-pointer hover:bg-emerald-700"
+              >
+                সরাসরি এডমিন প্রবেশ
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenNewWindow}
+                className="px-3 py-1 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] font-bold cursor-pointer"
+              >
+                নতুন ট্যাবে খুলুন
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Selection */}
         <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl text-xs font-bold">

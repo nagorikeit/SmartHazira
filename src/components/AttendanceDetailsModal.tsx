@@ -32,7 +32,8 @@ import {
   CalendarDays,
   Flame,
   CheckCheck,
-  XCircle
+  XCircle,
+  Layers
 } from 'lucide-react';
 
 interface AttendanceDetailsModalProps {
@@ -273,12 +274,27 @@ export const AttendanceDetailsModal: React.FC<AttendanceDetailsModalProps> = ({
               
               {/* Date & Overall Status Bar */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
-                <div className="flex items-center space-x-2 text-xs text-slate-700 dark:text-slate-300">
-                  <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="font-bold">তারিখ:</span>
-                  <span className="font-mono bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white">
-                    {selectedDate} ({getBengaliDayName(selectedDate)})
-                  </span>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                  <div className="flex items-center space-x-1.5">
+                    <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="font-bold">তারিখ:</span>
+                    <span className="font-mono bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white">
+                      {selectedDate} ({getBengaliDayName(selectedDate)})
+                    </span>
+                  </div>
+
+                  {attendanceRecord?.shiftName && (
+                    <div className="flex items-center space-x-1.5 ml-1">
+                      <span className="font-bold text-slate-500">শিফট:</span>
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-bold text-xs">
+                        <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>{attendanceRecord.shiftName}</span>
+                        {attendanceRecord.shiftTiming && (
+                          <span className="text-[10px] opacity-75 font-mono ml-1">({attendanceRecord.shiftTiming})</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -646,6 +662,7 @@ export const AttendanceDetailsModal: React.FC<AttendanceDetailsModalProps> = ({
                   <thead>
                     <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold">
                       <th className="p-3 pl-4 whitespace-nowrap">তারিখ ও বার</th>
+                      <th className="p-3 whitespace-nowrap">শিফট</th>
                       <th className="p-3 whitespace-nowrap">১ম প্রবেশ (In)</th>
                       <th className="p-3 whitespace-nowrap">২য় প্রস্থান (Out)</th>
                       <th className="p-3 whitespace-nowrap">মোট অবস্থান</th>
@@ -657,7 +674,7 @@ export const AttendanceDetailsModal: React.FC<AttendanceDetailsModalProps> = ({
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {filteredHistoryRecords.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400 text-xs">
+                        <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
                           কোনো হিস্টোরি রেকর্ড পাওয়া যায়নি।
                         </td>
                       </tr>
@@ -681,6 +698,14 @@ export const AttendanceDetailsModal: React.FC<AttendanceDetailsModalProps> = ({
                               <div className="text-[10px] text-slate-400 font-sans">
                                 {getBengaliDayName(rec.date)}
                               </div>
+                            </td>
+
+                            {/* Shift */}
+                            <td className="p-3 whitespace-nowrap">
+                              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                <Layers className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>{rec.shiftName || 'সাধারণ শিফট'}</span>
+                              </span>
                             </td>
 
                             {/* In Time */}

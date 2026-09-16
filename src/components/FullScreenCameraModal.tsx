@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, X, CheckCircle2, AlertTriangle, SwitchCamera, Zap, AlertCircle } from 'lucide-react';
+import { Camera, X, CheckCircle2, AlertTriangle, Zap, AlertCircle, Lock, Maximize2, Minimize2 } from 'lucide-react';
 import {
   analyzeVideoFrameForFace,
   extractFaceImage,
@@ -25,10 +25,25 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
+  const cameraFacing = 'user'; // Strictly Front/Selfie Camera (Back camera disabled)
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(Boolean(typeof document !== 'undefined' && document.fullscreenElement));
+
+  const toggleBrowserFullscreen = () => {
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        setIsFullscreen(true);
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+        setIsFullscreen(false);
+      }
+    } catch {
+      // Fullscreen fallback
+    }
+  };
 
   // Real-time Face Detection Analysis State
   const [faceAnalysis, setFaceAnalysis] = useState<FaceFrameAnalysis>({
@@ -71,24 +86,63 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
     }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraError('আপনার ব্রাউজার বা ডিভাইসে ক্যামেরা API সাপোর্ট করছে না। অনুগ্রহ করে Chrome বা Safari ব্রাউজার ব্যবহার করুন।');
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: facing,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          facingMode: { ideal: facing },
+          width: { ideal: 1280, min: 320 },
+          height: { ideal: 720, min: 240 },
         },
         audio: false,
       });
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
     } catch (err: any) {
-      console.error('Camera access error:', err);
-      setCameraError('ক্যামেরা চালু করা সম্ভব হয়নি। ব্রাউজারের ক্যামেরা পারমিশন অনুমোদন করুন।');
+      console.warn('Initial registration camera attempt failed, trying fallback 1...', err);
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing },
+          audio: false,
+        });
+        setStream(fallbackStream);
+      } catch (err2) {
+        console.warn('Fallback 1 failed, trying fallback 2...', err2);
+        try {
+          const basicStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          setStream(basicStream);
+        } catch (fallbackErr: any) {
+          console.error('Camera access error:', fallbackErr);
+          if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+            setCameraError('ক্যামেরা পারমিশন ব্লক করা আছে। ব্রাউজারের অ্যাড্রেস বারের তালা (Lock) আইকনে ক্লিক করে ক্যামেরার অনুমতি দিন।');
+          } else {
+            setCameraError('ক্যামেরা চালু করা সম্ভব হয়নি। ডিভাইসে ক্যামেরা সংযুক্ত আছে কি না তা পরীক্ষা করুন।');
+          }
+        }
+      }
     }
   };
+
+  // Dedicated effect to bind stream to video element and trigger play
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      const video = videoRef.current;
+      video.srcObject = stream;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('autoplay', 'true');
+      video.setAttribute('muted', 'true');
+      video.play().catch(err => {
+        console.warn('Auto-play blocked on camera register modal:', err);
+      });
+    }
+  }, [stream]);
 
   const stopCamera = () => {
     if (stream) {
@@ -129,11 +183,6 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
       clearInterval(interval);
     };
   }, [isOpen, stream, cameraError, isCapturing]);
-
-  const handleToggleFacing = () => {
-    const nextFacing = cameraFacing === 'user' ? 'environment' : 'user';
-    setCameraFacing(nextFacing);
-  };
 
   // Strictly handles capture - rejects anything without a verified face
   const handleCapture = async () => {
@@ -197,7 +246,7 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-white select-none overflow-hidden animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black text-white select-none overflow-hidden h-[100dvh] w-full animate-in fade-in duration-200">
       
       {/* Hidden Analysis Canvas */}
       <canvas ref={analysisCanvasRef} className="hidden" />
@@ -205,33 +254,42 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
       {/* Top Floating Controls - Clean and Minimalist */}
       <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-auto">
         <div className="flex items-center space-x-2">
-          <button
-            type="button"
-            onClick={handleToggleFacing}
-            title="ক্যামেরা পরিবর্তন (Front / Back)"
-            className="p-3 rounded-full bg-slate-950/60 backdrop-blur-md hover:bg-slate-900 text-slate-200 hover:text-white border border-white/10 transition cursor-pointer active:scale-95 shadow-lg"
-          >
-            <SwitchCamera className="w-5 h-5" />
-          </button>
+          {/* Strict Front Camera Locked Badge */}
+          <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-teal-500/40 text-teal-300 text-xs font-bold shadow-lg flex items-center space-x-1.5 shrink-0">
+            <Lock className="w-3.5 h-3.5 text-teal-400" />
+            <span>সেলফি/ফ্রন্ট ক্যামেরা</span>
+          </div>
 
           {memberName && (
-            <div className="px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg">
+            <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg">
               {memberName}
             </div>
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            stopCamera();
-            onClose();
-          }}
-          title="বন্ধ করুন"
-          className="p-3 rounded-full bg-slate-950/60 backdrop-blur-md hover:bg-rose-950/80 text-slate-300 hover:text-rose-300 border border-white/10 transition cursor-pointer active:scale-95 shadow-lg"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center space-x-2 shrink-0">
+          {/* Fullscreen Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleBrowserFullscreen}
+            title={isFullscreen ? 'ফুলস্ক্রিন বন্ধ করুন' : 'ফুলস্ক্রিন মোড চালু করুন'}
+            className="p-3 rounded-full bg-slate-950/80 backdrop-blur-md hover:bg-slate-900 text-slate-300 hover:text-white border border-white/15 transition cursor-pointer active:scale-95 shadow-lg flex items-center justify-center"
+          >
+            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              stopCamera();
+              onClose();
+            }}
+            title="বন্ধ করুন"
+            className="p-3 rounded-full bg-slate-950/80 backdrop-blur-md hover:bg-rose-950/90 text-slate-300 hover:text-rose-300 border border-white/15 transition cursor-pointer active:scale-95 shadow-lg"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Fullscreen Video Viewport */}

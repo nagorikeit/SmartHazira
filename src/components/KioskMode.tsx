@@ -3,7 +3,8 @@ import { Student, ClassSubject, AttendanceRecord } from '../types';
 import { identifyStudentFromCamera, speakBengaliAttendance, speakBengaliAlreadyAttended } from '../utils/faceMatching';
 import { saveAttendanceRecord, getStoredAttendance } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
-import { Camera, CheckCircle2, RefreshCw, X, Sparkles, Volume2, ShieldCheck, UserCheck, Info } from 'lucide-react';
+import { getStoredScheduleSettings, getCurrentActiveShift } from '../utils/scheduleConfig';
+import { Camera, CheckCircle2, RefreshCw, X, Sparkles, Volume2, ShieldCheck, UserCheck, Info, Layers } from 'lucide-react';
 
 interface KioskModeProps {
   classes: ClassSubject[];
@@ -287,6 +288,12 @@ export const KioskMode: React.FC<KioskModeProps> = ({
                   <p className="text-xs text-slate-400 mt-0.5 font-mono">
                     {terminology.idLabel}: {lastDetectedStudent.roll} | {lastDetectedStudent.className}
                   </p>
+                  <div className="mt-2 flex justify-center">
+                    <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                      <Layers className="w-3 h-3 text-emerald-400" />
+                      <span>{getCurrentActiveShift(getStoredScheduleSettings(), new Date())?.nameBangla || 'ডে শিফট'}</span>
+                    </span>
+                  </div>
                 </div>
 
                 {isAlreadyAttended ? (
