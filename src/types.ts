@@ -278,7 +278,12 @@ export interface GeofenceSettings {
   enforceGeofence: boolean;
   allowRemoteCheckIn: boolean;
   wifiSsid?: string;
+  wifiSSID?: string;
   ipWhitelist?: string;
+  bssid?: string;
+  enabled?: boolean;
+  strictMode?: boolean;
+  blockMockLocations?: boolean;
 }
 
 export interface OrganizationScheduleSettings {

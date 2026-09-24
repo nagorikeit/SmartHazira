@@ -7,7 +7,8 @@ import {
   User,
   Camera,
   Fingerprint,
-  Menu
+  Menu,
+  Clock
 } from 'lucide-react';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { UserRole } from '../types';
@@ -76,7 +77,7 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               </span>
             </button>
 
-            {/* Item 2: ফেস স্ক্যান */}
+            {/* Item 2: ফেস ক্যামেরা */}
             <button
               id="footer-nav-student-face"
               onClick={onOpenFaceScanner}
@@ -87,22 +88,22 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
                 <Camera className="w-5 h-5 transition-transform group-hover:scale-110 stroke-[1.8]" />
               </div>
               <span className="text-[11px] leading-tight mt-1 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
-                ফেস স্ক্যান
+                ফেস ক্যামেরা
               </span>
             </button>
 
-            {/* Item 3 (CENTER): মোবাইল ফিঙ্গারপ্রিন্ট অ্যাকশন বাটন */}
+            {/* Item 3 (CENTER): মোবাইল ফেস হাজিরা অ্যাকশন বাটন */}
             <div className="flex items-center justify-center -mt-5 sm:-mt-6 relative">
               <button
-                id="footer-action-fingerprint"
+                id="footer-action-face-attendance"
                 type="button"
-                onClick={onOpenFingerprintScanner}
-                title="মোবাইল ফিঙ্গারপ্রিন্ট হাজিরা"
+                onClick={onOpenFaceScanner}
+                title="মোবাইল ফেস হাজিরা দিন"
                 className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black shadow-lg shadow-emerald-500/40 border-4 border-slate-900 transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
               >
                 <span className="absolute -inset-1 rounded-full bg-emerald-400/30 animate-pulse" />
                 <div className="relative z-10 flex items-center justify-center">
-                  <Fingerprint className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-slate-950" />
+                  <Camera className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-slate-950" />
                 </div>
               </button>
               <span className="absolute -bottom-4 text-[10px] font-black text-emerald-400 tracking-tight whitespace-nowrap">
@@ -210,68 +211,68 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             </span>
           </button>
 
-          {/* Item 3 (CENTER): পাবলিক কিউআর ও হাজিরা লিংক বাটন */}
+          {/* Item 3 (CENTER): লাইভ ফেস স্ক্যানার বাটন */}
           <div className="flex items-center justify-center -mt-5 sm:-mt-6 relative">
             <button
-              id="footer-action-qr-portal"
+              id="footer-action-face-scanner"
               type="button"
-              onClick={onOpenAttendanceLinkModal}
-              title="কর্মীদের জন্য পাবলিক হাজিরা কিউআর কোড ও লিংক"
+              onClick={onOpenFaceScanner}
+              title="মোবাইল ক্যামেরা দিয়ে লাইভ ফেস হাজিরা গ্রহণ"
               className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black shadow-lg shadow-emerald-500/40 border-4 border-slate-900 transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
             >
               {/* Pulsing ring */}
               <span className="absolute -inset-1 rounded-full bg-emerald-400/30 animate-pulse" />
               
               <div className="relative z-10 flex items-center justify-center">
-                <QrCode className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-slate-950" />
+                <Camera className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-slate-950" />
               </div>
             </button>
             <span className="absolute -bottom-4 text-[10px] font-black text-emerald-400 tracking-tight whitespace-nowrap">
-              পাবলিক কিউআর
+              ফেস স্ক্যান
             </span>
           </div>
 
-          {/* Item 4: এনালিটিক্স ও রিপোর্ট */}
+          {/* Item 4: শিফট সেটিংস (কয়টা থেকে কয়টা) */}
           <button
-            id="footer-nav-analytics"
-            onClick={() => onSelectTab('analytics')}
-            title="পরিসংখ্যান ও রিপোর্ট"
+            id="footer-nav-schedule"
+            onClick={() => onSelectTab('schedule')}
+            title="শিফট তৈরি ও কাজের সময় সেটিংস"
             className={`group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer ${
-              activeTab === 'analytics'
+              activeTab === 'schedule'
                 ? 'text-emerald-400 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {activeTab === 'analytics' && (
+            {activeTab === 'schedule' && (
               <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl shadow-xs" />
             )}
             <div className="relative z-10 flex items-center justify-center">
-              <BarChart3 className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                activeTab === 'analytics' ? 'text-emerald-400 stroke-[2.4]' : 'text-slate-400 stroke-[1.8]'
+              <Clock className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                activeTab === 'schedule' ? 'text-emerald-400 stroke-[2.4]' : 'text-slate-400 stroke-[1.8]'
               }`} />
             </div>
             <span className={`text-[11px] leading-tight mt-1 z-10 truncate ${
-              activeTab === 'analytics' ? 'text-emerald-300 font-bold' : 'text-slate-400'
+              activeTab === 'schedule' ? 'text-emerald-300 font-bold' : 'text-slate-400'
             }`}>
-              রিপোর্ট
+              শিফট
             </span>
           </button>
 
-          {/* Item 5: প্রোফাইল সংক্রান্ত মেনু */}
+          {/* Item 5: মেনু */}
           <button
-            id="footer-action-profile"
+            id="footer-action-menu"
             type="button"
-            onClick={onOpenProfileModal || onOpenNavMenu}
-            title="কোম্পানি ও এডমিন প্রোফাইল সেটিংস"
+            onClick={onOpenNavMenu}
+            title="মেনু ও অন্যান্য টুলস"
             className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-slate-200"
           >
             <div className="relative z-10 flex items-center justify-center">
               <div className="p-1 rounded-full group-hover:bg-emerald-500/20 transition">
-                <User className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-400 group-hover:text-emerald-400 stroke-[1.8]" />
+                <Menu className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-400 group-hover:text-emerald-400 stroke-[1.8]" />
               </div>
             </div>
             <span className="text-[11px] leading-tight mt-0.5 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
-              প্রোফাইল
+              মেনু
             </span>
           </button>
 

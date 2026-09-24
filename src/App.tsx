@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole, ClassSubject, Student, AttendanceRecord, PayrollRecord, SomityTransaction, LeaveRequest, AuditLogItem, RegisteredCompany, OrganizationScheduleSettings } from './types';
+import { UserRole, ClassSubject, Student, AttendanceRecord, AuditLogItem, RegisteredCompany, OrganizationScheduleSettings } from './types';
 import { getStoredClasses, getStoredStudents, getStoredAttendance, getDailySummaryForClass } from './utils/storage';
 import { OrgCategoryKey, ORG_CATEGORIES, getStoredOrgCategory, saveOrgCategory } from './utils/organizationConfig';
 import { getStoredScheduleSettings, saveScheduleSettings, getCurrentActiveShift } from './utils/scheduleConfig';
@@ -8,11 +8,7 @@ import {
   CATEGORY_CLASSES,
   CATEGORY_MEMBERS,
   generateInitialAttendanceRecords,
-  MOCK_PAYROLL_RECORDS,
-  MOCK_SOMITY_TRANSACTIONS,
-  MOCK_LEAVE_REQUESTS,
   MOCK_AUDIT_LOGS,
-  MOCK_ACADEMIC_SCHEDULE,
   MOCK_COMPANIES
 } from './data/mockData';
 
@@ -27,28 +23,22 @@ import { StudentFaceRegisterModal } from './components/StudentFaceRegisterModal'
 import { OrgCategorySelectorModal } from './components/OrgCategorySelectorModal';
 import { AnalyticsView } from './components/AnalyticsView';
 
-// New Comprehensive System Modules
+// Mobile-First Core Modules
 import { GeofenceScannerModal } from './components/GeofenceScannerModal';
-import { PayrollView } from './components/PayrollView';
-import { SomityView } from './components/SomityView';
-import { LeaveManagementView } from './components/LeaveManagementView';
-import { AIAssistantView } from './components/AIAssistantView';
-import { AcademicView } from './components/AcademicView';
 import { NotificationSmsModal } from './components/NotificationSmsModal';
 import { SmartIdCardModal } from './components/SmartIdCardModal';
 import { AuditLogModal } from './components/AuditLogModal';
-import { FingerprintScannerModal } from './components/FingerprintScannerModal';
 import { AuthRegistrationModal } from './components/AuthRegistrationModal';
 import { MandatoryLoginGate } from './components/MandatoryLoginGate';
 import { NavigationMenu } from './components/NavigationMenu';
 import { CompanyAdminNavbar } from './components/CompanyAdminNavbar';
 import { UserDirectoryView } from './components/UserDirectoryView';
+import { MemberProfileModal } from './components/MemberProfileModal';
 import { CompanyProfileModal } from './components/CompanyProfileModal';
 import { AttendanceLinkModal } from './components/AttendanceLinkModal';
 import { PublicAttendancePortal } from './components/PublicAttendancePortal';
 import { BiometricManagementModal } from './components/BiometricManagementModal';
 import { EditMemberModal } from './components/EditMemberModal';
-import { ZKTecoDeviceModal } from './components/ZKTecoDeviceModal';
 import { ScheduleSettingsView } from './components/ScheduleSettingsView';
 import { FooterNavigation } from './components/FooterNavigation';
 import { exportAttendanceCSV, saveStudents } from './utils/storage';
@@ -56,17 +46,11 @@ import { exportAttendanceCSV, saveStudents } from './utils/storage';
 import {
   BarChart3,
   LayoutDashboard,
-  DollarSign,
   Users,
-  Calendar,
-  Sparkles,
-  GraduationCap,
   MapPin,
   MessageSquare,
   QrCode,
-  Lock,
   Camera,
-  Fingerprint,
   CheckCircle2,
   Zap,
   UserPlus
@@ -143,10 +127,7 @@ export default function App() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
-  // System feature datasets
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(MOCK_PAYROLL_RECORDS);
-  const [somityTransactions, setSomityTransactions] = useState<SomityTransaction[]>(MOCK_SOMITY_TRANSACTIONS);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(MOCK_LEAVE_REQUESTS);
+  // System datasets
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
   const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>(MOCK_COMPANIES);
   const [activeCompany, setActiveCompany] = useState<RegisteredCompany | null>(() => {
@@ -307,7 +288,7 @@ export default function App() {
   };
 
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'payroll' | 'somity' | 'leave' | 'academic' | 'ai' | 'analytics' | 'schedule'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'schedule' | 'analytics'>('dashboard');
 
   // Modals state
   const [scheduleSettings, setScheduleSettings] = useState<OrganizationScheduleSettings>(getStoredScheduleSettings());
@@ -319,11 +300,11 @@ export default function App() {
   const [isSmsModalOpen, setIsSmsModalOpen] = useState<boolean>(false);
   const [isSmartIdCardOpen, setIsSmartIdCardOpen] = useState<boolean>(false);
   const [isAuditLogOpen, setIsAuditLogOpen] = useState<boolean>(false);
-  const [isFingerprintScannerOpen, setIsFingerprintScannerOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isNavMenuOpen, setIsNavMenuOpen] = useState<boolean>(false);
   const [isCompanyProfileModalOpen, setIsCompanyProfileModalOpen] = useState<boolean>(false);
   const [isAttendanceLinkModalOpen, setIsAttendanceLinkModalOpen] = useState<boolean>(false);
+  const [selectedMemberForProfile, setSelectedMemberForProfile] = useState<Student | null>(null);
   const [isPublicPortalOpen, setIsPublicPortalOpen] = useState<boolean>(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
@@ -345,7 +326,6 @@ export default function App() {
       return false;
     }
   });
-  const [isZKTecoModalOpen, setIsZKTecoModalOpen] = useState<boolean>(false);
   const [isBiometricsModalOpen, setIsBiometricsModalOpen] = useState<boolean>(false);
   const [selectedStudentForBiometrics, setSelectedStudentForBiometrics] = useState<Student | null>(null);
   const [isEditMemberModalOpen, setIsEditMemberModalOpen] = useState<boolean>(false);
@@ -678,33 +658,6 @@ export default function App() {
     saveAuditLogToFirestore(newLog);
   };
 
-  // Payroll handlers
-  const handleUpdatePayrollStatus = (recordId: string, status: 'Paid' | 'Pending', method?: any) => {
-    setPayrollRecords(prev =>
-      prev.map(r => (r.id === recordId ? { ...r, status, paymentMethod: method || r.paymentMethod } : r))
-    );
-  };
-
-  const handleAddPayrollRecord = (record: PayrollRecord) => {
-    setPayrollRecords(prev => [record, ...prev]);
-  };
-
-  // Somity handlers
-  const handleAddSomityTransaction = (tx: SomityTransaction) => {
-    setSomityTransactions(prev => [tx, ...prev]);
-  };
-
-  // Leave handlers
-  const handleUpdateLeaveStatus = (requestId: string, status: 'Approved' | 'Rejected') => {
-    setLeaveRequests(prev =>
-      prev.map(r => (r.id === requestId ? { ...r, status } : r))
-    );
-  };
-
-  const handleAddLeaveRequest = (request: LeaveRequest) => {
-    setLeaveRequests(prev => [request, ...prev]);
-  };
-
   // Schedule & Geofence Settings handler
   const handleSaveScheduleSettings = (newSettings: OrganizationScheduleSettings) => {
     setScheduleSettings(newSettings);
@@ -863,15 +816,14 @@ export default function App() {
                 onOpenSmsModal={() => setIsSmsModalOpen(true)}
                 onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
                 onOpenAuditLog={() => setIsAuditLogOpen(true)}
-                onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
                 onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
-                onOpenZKTecoDeviceModal={() => setIsZKTecoModalOpen(true)}
                 onOpenBiometricsModal={(student) => {
                   setSelectedStudentForBiometrics(student);
                   setIsBiometricsModalOpen(true);
                 }}
                 onOpenEditModal={handleOpenEditModal}
                 onNavigateToUsers={() => setActiveTab('users')}
+                onOpenMemberProfile={(student) => setSelectedMemberForProfile(student)}
               />
             ) : activeTab === 'users' ? (
               <UserDirectoryView
@@ -889,40 +841,7 @@ export default function App() {
                 onDeleteStudent={handleDeleteMember}
                 onApproveBiometrics={handleApproveBiometrics}
                 onBulkStudentsAdded={handleBulkStudentsAdded}
-              />
-            ) : activeTab === 'payroll' ? (
-              <PayrollView
-                students={students}
-                payrollRecords={payrollRecords}
-                orgInfo={orgInfo}
-                onUpdatePayrollStatus={handleUpdatePayrollStatus}
-                onAddPayrollRecord={handleAddPayrollRecord}
-              />
-            ) : activeTab === 'somity' ? (
-              <SomityView
-                students={students}
-                transactions={somityTransactions}
-                orgInfo={orgInfo}
-                onAddTransaction={handleAddSomityTransaction}
-              />
-            ) : activeTab === 'leave' ? (
-              <LeaveManagementView
-                students={students}
-                leaveRequests={leaveRequests}
-                orgInfo={orgInfo}
-                onUpdateLeaveStatus={handleUpdateLeaveStatus}
-                onAddLeaveRequest={handleAddLeaveRequest}
-              />
-            ) : activeTab === 'academic' ? (
-              <AcademicView
-                schedules={MOCK_ACADEMIC_SCHEDULE}
-                orgInfo={orgInfo}
-              />
-            ) : activeTab === 'ai' ? (
-              <AIAssistantView
-                students={students}
-                attendanceRecords={attendanceRecords}
-                orgInfo={orgInfo}
+                onOpenMemberProfile={(student) => setSelectedMemberForProfile(student)}
               />
             ) : activeTab === 'schedule' ? (
               <ScheduleSettingsView
@@ -1030,18 +949,6 @@ export default function App() {
         auditLogs={auditLogs}
       />
 
-      {/* Biometric Fingerprint Scanner Modal */}
-      <FingerprintScannerModal
-        isOpen={isFingerprintScannerOpen}
-        onClose={() => setIsFingerprintScannerOpen(false)}
-        students={students.filter(s => s.classId === selectedClassId || !selectedClassId)}
-        selectedClassId={selectedClassId}
-        selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
-        onAttendanceUpdated={handleAttendanceUpdated}
-        soundEnabled={soundEnabled}
-        orgInfo={orgInfo}
-      />
-
       {/* Auth & Registration Portal Modal */}
       <AuthRegistrationModal
         isOpen={isAuthModalOpen}
@@ -1068,8 +975,6 @@ export default function App() {
         onSelectTab={(tab) => setActiveTab(tab as any)}
         orgInfo={orgInfo}
         onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
-        onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
-        onOpenZKTecoDeviceModal={() => setIsZKTecoModalOpen(true)}
         onOpenGeofenceModal={() => setIsGeofenceScannerOpen(true)}
         onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
         onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
@@ -1142,18 +1047,7 @@ export default function App() {
         onOpenPublicPortal={() => setIsPublicPortalOpen(true)}
       />
 
-      {/* ZKTeco K40 & Biometric Machine Log History Modal */}
-      <ZKTecoDeviceModal
-        isOpen={isZKTecoModalOpen}
-        onClose={() => setIsZKTecoModalOpen(false)}
-        students={students}
-        attendanceRecords={attendanceRecords}
-        onAttendanceUpdated={handleAttendanceUpdated}
-        orgInfo={orgInfo}
-        onBulkStudentsAdded={handleBulkStudentsAdded}
-      />
-
-      {/* Employee / Member Biometric Management Modal (Add, Update, Remove Face & Fingerprint) */}
+      {/* Employee / Member Biometric Management Modal */}
       <BiometricManagementModal
         isOpen={isBiometricsModalOpen}
         onClose={() => {
@@ -1164,6 +1058,25 @@ export default function App() {
         onSaveBiometrics={handleSaveBiometrics}
         orgInfo={orgInfo}
       />
+
+      {/* Member Profile Modal with Camera Face Enrollment */}
+      {selectedMemberForProfile && (
+        <MemberProfileModal
+          student={selectedMemberForProfile}
+          classes={classes}
+          orgInfo={orgInfo}
+          onClose={() => setSelectedMemberForProfile(null)}
+          onUpdateStudent={(updatedStudent) => {
+            setStudents(prev => {
+              const updated = prev.map(s => s.id === updatedStudent.id ? updatedStudent : s);
+              saveStudents(updated);
+              return updated;
+            });
+            saveMemberToFirestore(updatedStudent);
+            setSelectedMemberForProfile(updatedStudent);
+          }}
+        />
+      )}
 
       {/* Member Profile Edit Modal */}
       <EditMemberModal
@@ -1192,7 +1105,6 @@ export default function App() {
           onSelectTab={(tab) => setActiveTab(tab as any)}
           orgInfo={orgInfo}
           onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
-          onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
           onOpenNavMenu={() => setIsNavMenuOpen(true)}
           onOpenProfileModal={() => setIsCompanyProfileModalOpen(true)}
           onOpenRegisterModal={() => setIsRegisterModalOpen(true)}

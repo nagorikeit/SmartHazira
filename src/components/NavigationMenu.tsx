@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
   Camera, 
-  Fingerprint, 
   MapPin, 
   UserPlus, 
   QrCode, 
@@ -9,11 +8,7 @@ import {
   ShieldAlert, 
   Download, 
   CheckCheck, 
-  DollarSign, 
   Users, 
-  Calendar, 
-  GraduationCap, 
-  Sparkles, 
   BarChart3, 
   LayoutDashboard, 
   Building2, 
@@ -22,8 +17,7 @@ import {
   X, 
   SlidersHorizontal,
   Clock,
-  Contact2,
-  Cpu
+  Contact2
 } from 'lucide-react';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { UserRole } from '../types';
@@ -34,8 +28,6 @@ interface NavigationMenuProps {
   onSelectTab?: (tab: string) => void;
   orgInfo: OrgCategoryInfo;
   onOpenFaceScanner?: () => void;
-  onOpenFingerprintScanner?: () => void;
-  onOpenZKTecoDeviceModal?: () => void;
   onOpenGeofenceModal?: () => void;
   onOpenRegisterModal?: () => void;
   onOpenSmartIdCard?: () => void;
@@ -58,14 +50,13 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onSelectTab,
   orgInfo,
   onOpenFaceScanner,
-  onOpenFingerprintScanner,
-  onOpenZKTecoDeviceModal,
   onOpenGeofenceModal,
   onOpenRegisterModal,
   onOpenSmartIdCard,
   onOpenSmsModal,
   onOpenAuditLog,
   onOpenAttendanceLinkModal,
+  onOpenScheduleSettings,
   onExportCSV,
   onMarkAllPresent,
   onOpenOrgSelector,
@@ -176,24 +167,6 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     </button>
                   )}
 
-                  {onOpenFingerprintScanner && (
-                    <button
-                      onClick={() => handleAction(onOpenFingerprintScanner)}
-                      className="w-full p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                          <Fingerprint className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-white">মোবাইল ফিঙ্গারপ্রিন্ট হাজিরা</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">ফোনের ফিঙ্গারপ্রিন্ট সেন্সরে হাজিরা</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </button>
-                  )}
-
                   {onOpenGeofenceModal && (
                     <button
                       onClick={() => handleAction(onOpenGeofenceModal)}
@@ -253,7 +226,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                      প্রধান ড্যাশবোর্ড ও মডিউল
+                      প্রধান ড্যাশবোর্ড ও শিফট
                     </span>
                     <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
                       {activeTab}
@@ -286,83 +259,8 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     >
                       <Users className="w-4 h-4 shrink-0 text-teal-400" />
                       <div className="truncate">
-                        <p className="font-bold text-xs">{terminology.memberLabel} ডিরেক্টরি</p>
-                        <p className="text-[10px] opacity-70">প্রোফাইল ও তালিকা</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleTabSwitch('payroll')}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
-                        activeTab === 'payroll'
-                          ? 'bg-slate-900 dark:bg-emerald-600 text-white border-transparent shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500/40'
-                      }`}
-                    >
-                      <DollarSign className="w-4 h-4 shrink-0 text-emerald-400" />
-                      <div className="truncate">
-                        <p className="font-bold text-xs">বেতন ও পে-রোল</p>
-                        <p className="text-[10px] opacity-70">মাসিক স্যালারি শিট</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleTabSwitch('somity')}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
-                        activeTab === 'somity'
-                          ? 'bg-slate-900 dark:bg-emerald-600 text-white border-transparent shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500/40'
-                      }`}
-                    >
-                      <Users className="w-4 h-4 shrink-0 text-teal-400" />
-                      <div className="truncate">
-                        <p className="font-bold text-xs">সমিতি ও সঞ্চয়</p>
-                        <p className="text-[10px] opacity-70">ডিপিএস ও কিস্তি</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleTabSwitch('leave')}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
-                        activeTab === 'leave'
-                          ? 'bg-slate-900 dark:bg-emerald-600 text-white border-transparent shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500/40'
-                      }`}
-                    >
-                      <Calendar className="w-4 h-4 shrink-0 text-indigo-400" />
-                      <div className="truncate">
-                        <p className="font-bold text-xs">ছুটি ব্যবস্থাপনা</p>
-                        <p className="text-[10px] opacity-70">আবেদন অনুমোদন</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleTabSwitch('ai')}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
-                        activeTab === 'ai'
-                          ? 'bg-slate-900 dark:bg-purple-600 text-white border-transparent shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-purple-500/40'
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4 shrink-0 text-purple-400" />
-                      <div className="truncate">
-                        <p className="font-bold text-xs">AI রিপোর্ট হেলপার</p>
-                        <p className="text-[10px] opacity-70">Gemini সামারি</p>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => handleTabSwitch('analytics')}
-                      className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
-                        activeTab === 'analytics'
-                          ? 'bg-slate-900 dark:bg-emerald-600 text-white border-transparent shadow-md'
-                          : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500/40'
-                      }`}
-                    >
-                      <BarChart3 className="w-4 h-4 shrink-0 text-cyan-400" />
-                      <div className="truncate">
-                        <p className="font-bold text-xs">ভিজ্যুয়াল এনালিটিক্স</p>
-                        <p className="text-[10px] opacity-70">চার্ট ও ট্রেন্ড</p>
+                        <p className="font-bold text-xs">{terminology.memberLabel} তালিকা</p>
+                        <p className="text-[10px] opacity-70">প্রোফাইল ও ফেস ডাটা</p>
                       </div>
                     </button>
 
@@ -376,125 +274,66 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     >
                       <Clock className="w-4 h-4 shrink-0 text-emerald-400" />
                       <div className="truncate">
-                        <p className="font-bold text-xs">শিফট ও সিডিউল</p>
-                        <p className="text-[10px] opacity-70">২৪ ঘণ্টা ও GPS</p>
+                        <p className="font-bold text-xs">শিফট সেটিংস</p>
+                        <p className="text-[10px] opacity-70">কয়টা থেকে কয়টা</p>
                       </div>
                     </button>
 
-                    {orgKey === 'educational' && (
-                      <button
-                        onClick={() => handleTabSwitch('academic')}
-                        className={`col-span-2 p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
-                          activeTab === 'academic'
-                            ? 'bg-slate-900 dark:bg-blue-600 text-white border-transparent shadow-md'
-                            : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-blue-500/40'
-                        }`}
-                      >
-                        <GraduationCap className="w-4 h-4 shrink-0 text-blue-400" />
-                        <div>
-                          <p className="font-bold text-xs">ক্লাস রুটিন ও শিক্ষা ব্যবস্থা</p>
-                          <p className="text-[10px] opacity-70">টিচার ও বিষয়ভিত্তিক শিডিউল</p>
-                        </div>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleTabSwitch('analytics')}
+                      className={`p-3 rounded-2xl border text-left transition flex items-center space-x-2.5 cursor-pointer ${
+                        activeTab === 'analytics'
+                          ? 'bg-slate-900 dark:bg-emerald-600 text-white border-transparent shadow-md'
+                          : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-emerald-500/40'
+                      }`}
+                    >
+                      <BarChart3 className="w-4 h-4 shrink-0 text-cyan-400" />
+                      <div className="truncate">
+                        <p className="font-bold text-xs">রিপোর্ট ও এনালিটিক্স</p>
+                        <p className="text-[10px] opacity-70">উপস্থিতি পরিসংখ্যান</p>
+                      </div>
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Section 2: Quick Scanning & Biometric Tools */}
+              {/* Section 2: Mobile Face Attendance Tools */}
               <div className="space-y-2">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  হাজিরা ও বায়োমেট্রিক স্ক্যানার
+                  মোবাইল ফেস হাজিরা
                 </span>
 
                 <div className="space-y-1.5">
-                  {onOpenAttendanceLinkModal && (
-                    <button
-                      onClick={() => handleAction(onOpenAttendanceLinkModal)}
-                      className="w-full p-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl flex items-center justify-between hover:bg-indigo-100/50 dark:hover:bg-indigo-900/40 transition cursor-pointer text-left shadow-xs"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs">
-                          <QrCode className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">পাবলিক হাজিরা লিংক ও কিউআর</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">কর্মীদের জন্য লিংক ও প্রিন্টযোগ্য QR</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </button>
-                  )}
-
                   {onOpenFaceScanner && (
                     <button
                       onClick={() => handleAction(onOpenFaceScanner)}
-                      className="w-full p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-center justify-between hover:bg-emerald-100/50 dark:hover:bg-emerald-900/40 transition cursor-pointer text-left"
+                      className="w-full p-3.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-between hover:bg-emerald-500/20 transition cursor-pointer text-left shadow-xs"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-emerald-500 text-slate-950 rounded-xl shadow-xs">
+                        <div className="p-2.5 bg-emerald-500 text-slate-950 rounded-xl shadow-xs font-bold">
                           <Camera className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">AI ফেস রিকগনিশন ক্যামেরা</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">লাইভ ক্যামেরা দিয়ে স্বয়ংক্রিয় ফেস স্ক্যান</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </button>
-                  )}
-
-                  {onOpenFingerprintScanner && (
-                    <button
-                      onClick={() => handleAction(onOpenFingerprintScanner)}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-teal-500/20 text-teal-600 dark:text-teal-400 rounded-xl">
-                          <Fingerprint className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">বায়োমেট্রিক ফিঙ্গারপ্রিন্ট ডিভাইস</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">USB/ZKTeco ফিঙ্গারপ্রিন্ট সেন্সর কানেক্ট</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
-                    </button>
-                  )}
-
-                  {onOpenZKTecoDeviceModal && (
-                    <button
-                      onClick={() => handleAction(onOpenZKTecoDeviceModal)}
-                      className="w-full p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-slate-900/10 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-between hover:bg-emerald-50 dark:hover:bg-slate-800 transition cursor-pointer text-left"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-gradient-to-tr from-emerald-600 to-teal-500 text-white rounded-xl shadow-xs">
-                          <Cpu className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-1.5">
-                            <p className="font-bold text-xs text-slate-900 dark:text-slate-100">ZKTeco SenseFace M2F-LR ডিভাইস</p>
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">Face+Finger</span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">মেশিন পাঞ্চ লগ হিস্টোরি, ADMS লাইভ পুশ ও পেনড্রাইভ সিঙ্ক</p>
+                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">মোবাইল ফেস স্ক্যানার</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">ক্যামেরা ধরে তাৎক্ষণিক স্বয়ংক্রিয় হাজিরা</p>
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-emerald-500" />
                     </button>
                   )}
 
-                  {onOpenGeofenceModal && (
+                  {onOpenAttendanceLinkModal && (
                     <button
-                      onClick={() => handleAction(onOpenGeofenceModal)}
+                      onClick={() => handleAction(onOpenAttendanceLinkModal)}
                       className="w-full p-3 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-left"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 rounded-xl">
-                          <MapPin className="w-4 h-4" />
+                        <div className="p-2 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                          <QrCode className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">GPS সেলফি ও জিওফেন্সিং</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">অফিস পরিধি সীমানা ও লোকেশন ভেরিফিকেশন</p>
+                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">পাবলিক হাজিরা কিউআর ও পোর্টাল</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">কর্মীদের নিজের মোবাইলে হাজিরা দেওয়ার লিংক</p>
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-400" />

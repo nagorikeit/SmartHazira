@@ -64,6 +64,7 @@ interface TeacherDashboardProps {
   onOpenBiometricsModal?: (student: Student) => void;
   onOpenEditModal?: (student: Student) => void;
   onNavigateToUsers?: () => void;
+  onOpenMemberProfile?: (student: Student) => void;
 }
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
@@ -86,6 +87,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onOpenBiometricsModal,
   onOpenEditModal,
   onNavigateToUsers,
+  onOpenMemberProfile,
 }) => {
   const { terminology } = orgInfo;
 
@@ -262,33 +264,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Pending Mobile Biometric Approvals Banner */}
-      {pendingApprovalsCount > 0 && onNavigateToUsers && (
-        <div className="p-3.5 bg-amber-500/10 dark:bg-amber-950/40 rounded-2xl border border-amber-500/30 flex items-center justify-between shadow-xs">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0">
-              <Fingerprint className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-amber-900 dark:text-amber-200">
-                {pendingApprovalsCount} টি নতুন মোবাইল ফিঙ্গারপ্রিন্ট আবেদন অনুমোদনের অপেক্ষায়
-              </p>
-              <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                কর্মীরা তাদের মোবাইল থেকে বায়োমেট্রিক নিবন্ধন সম্পন্ন করেছেন। অনুমোদন দিতে সদস্য ডিরেক্টরিতে যান।
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onNavigateToUsers}
-            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl inline-flex items-center space-x-1 transition cursor-pointer shadow-xs shrink-0"
-          >
-            <span>অনুমোদন ড্যাশবোর্ড</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Quick Attendance Methods & Hardware Devices Bar */}
+      {/* Quick Attendance Methods & Mobile Tools Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {/* 1. AI Face Recognition */}
         <button
@@ -323,37 +299,32 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </button>
         )}
 
-        {/* 3. ZKTeco Biometric Machine & Log History (SenseFace M2F-LR) */}
-        {onOpenZKTecoDeviceModal && (
-          <button
-            onClick={onOpenZKTecoDeviceModal}
-            className="p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 hover:bg-slate-800 text-white rounded-2xl shadow-xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group border border-emerald-500/30"
-          >
-            <div className="p-2 bg-gradient-to-tr from-emerald-500/20 to-teal-400/20 text-emerald-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
-              <Cpu className="w-5 h-5" />
-            </div>
-            <div className="truncate">
-              <div className="flex items-center space-x-1">
-                <p className="font-extrabold text-xs">SenseFace M2F-LR</p>
-                <span className="px-1 py-0.2 bg-emerald-500/30 text-emerald-300 font-black text-[9px] rounded">ADMS লাইভ</span>
-              </div>
-              <p className="text-[10px] text-slate-300 opacity-90">ফেস, ফিঙ্গার ও ক্লাউড সিঙ্ক</p>
-            </div>
-          </button>
-        )}
+        {/* 3. Add New Member with Face Enrollment */}
+        <button
+          onClick={onOpenRegisterModal}
+          className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-2xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
+        >
+          <div className="p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+            <UserPlus className="w-5 h-5" />
+          </div>
+          <div className="truncate">
+            <p className="font-extrabold text-xs">নতুন {terminology.memberLabel} যোগ</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">প্রোফাইল ও ফেস নিবন্ধন</p>
+          </div>
+        </button>
 
-        {/* 4. Mobile Biometric / GPS */}
-        {onOpenFingerprintScanner && (
+        {/* 4. Navigate to Member & Face Directory */}
+        {onNavigateToUsers && (
           <button
-            onClick={onOpenFingerprintScanner}
+            onClick={onNavigateToUsers}
             className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-2xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
           >
             <div className="p-2 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
-              <Fingerprint className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
             <div className="truncate">
-              <p className="font-extrabold text-xs">বায়োমেট্রিক সেন্সর</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">USB / ফিঙ্গারপ্রিন্ট রিডার</p>
+              <p className="font-extrabold text-xs">{terminology.memberLabel} ও ফেস প্রোফাইল</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">সকলের তালিকা ও ফেস ডাটা</p>
             </div>
           </button>
         )}
@@ -479,7 +450,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     {/* 1. Profile Photo & Name */}
                     <td className="p-3 pl-4 whitespace-nowrap">
                       <div className="flex items-center space-x-3">
-                        <div className="w-9 h-9 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 group-hover:border-emerald-500 overflow-hidden shrink-0 flex items-center justify-center font-bold text-emerald-700 dark:text-emerald-400 transition relative shadow-2xs">
+                        <div 
+                          onClick={(e) => {
+                            if (onOpenMemberProfile) {
+                              e.stopPropagation();
+                              onOpenMemberProfile(student);
+                            }
+                          }}
+                          className="w-9 h-9 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 group-hover:border-emerald-500 overflow-hidden shrink-0 flex items-center justify-center font-bold text-emerald-700 dark:text-emerald-400 transition relative shadow-2xs hover:scale-105"
+                          title="সদস্য প্রোফাইল ও ফেস ক্যামেরা দেখতে ক্লিক করুন"
+                        >
                           {hasFace && (student.faceImage || student.photoUrl) ? (
                             <img
                               src={student.faceImage || student.photoUrl}
