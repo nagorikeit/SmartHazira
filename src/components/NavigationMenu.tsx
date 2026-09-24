@@ -22,7 +22,8 @@ import {
   X, 
   SlidersHorizontal,
   Clock,
-  Contact2
+  Contact2,
+  Cpu
 } from 'lucide-react';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { UserRole } from '../types';
@@ -34,6 +35,7 @@ interface NavigationMenuProps {
   orgInfo: OrgCategoryInfo;
   onOpenFaceScanner?: () => void;
   onOpenFingerprintScanner?: () => void;
+  onOpenZKTecoDeviceModal?: () => void;
   onOpenGeofenceModal?: () => void;
   onOpenRegisterModal?: () => void;
   onOpenSmartIdCard?: () => void;
@@ -57,6 +59,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   orgInfo,
   onOpenFaceScanner,
   onOpenFingerprintScanner,
+  onOpenZKTecoDeviceModal,
   onOpenGeofenceModal,
   onOpenRegisterModal,
   onOpenSmartIdCard,
@@ -456,6 +459,27 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                  )}
+
+                  {onOpenZKTecoDeviceModal && (
+                    <button
+                      onClick={() => handleAction(onOpenZKTecoDeviceModal)}
+                      className="w-full p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-slate-900/10 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-500/40 rounded-2xl flex items-center justify-between hover:bg-emerald-50 dark:hover:bg-slate-800 transition cursor-pointer text-left"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-gradient-to-tr from-emerald-600 to-teal-500 text-white rounded-xl shadow-xs">
+                          <Cpu className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-1.5">
+                            <p className="font-bold text-xs text-slate-900 dark:text-slate-100">ZKTeco SenseFace M2F-LR ডিভাইস</p>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">Face+Finger</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">মেশিন পাঞ্চ লগ হিস্টোরি, ADMS লাইভ পুশ ও পেনড্রাইভ সিঙ্ক</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-emerald-500" />
                     </button>
                   )}
 

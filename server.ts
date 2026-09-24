@@ -7,6 +7,123 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "15mb" }));
+app.use(express.text({ type: ["text/*", "application/octet-stream"], limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// In-memory store for ZKTeco Live Pushed Logs
+const liveZKTecoLogs: Array<{
+  id: string;
+  userId: string;
+  timestamp: string;
+  date: string;
+  time: string;
+  verifyType: string;
+  punchType: string;
+  deviceSn: string;
+  deviceModel: string;
+}> = [];
+
+// ZKTeco Push Protocol (ADMS / Cloud Server) Handshake & Endpoints
+// Standard ZKTeco terminal polls /iclock/cdata with SN query parameter
+app.get("/iclock/cdata", (req, res) => {
+  const sn = req.query.SN || "UFS2254700071";
+  console.log(`[ZKTeco ADMS] Device connected with SN: ${sn}`);
+  res.setHeader("Content-Type", "text/plain");
+  // ZKTeco Push protocol expects OK response with configuration parameters
+  res.send(`GET OPTION FROM: ${sn}\nStamp=9999\nOpStamp=9999\nErrorDelay=30\nDelay=10\nTransTimes=00:00;14:05\nTransInterval=1\nTransFlag=1111000000\nRealtime=1\nEncrypt=0`);
+});
+
+// ZKTeco Terminal pushes attendance records (table=ATTLOG)
+app.post("/iclock/cdata", (req, res) => {
+  const sn = (req.query.SN as string) || "UFS2254700071";
+  const table = req.query.table || "ATTLOG";
+  const bodyText = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  
+  console.log(`[ZKTeco ADMS ATTLOG Received] SN: ${sn}, Table: ${table}, Body lines:`, bodyText);
+
+  // Parse lines: PIN \t Timestamp \t VerifyType \t PunchType
+  if (bodyText) {
+    const lines = bodyText.split(/\r?\n/);
+    lines.forEach((line: string) => {
+      const parts = line.trim().split(/[\t,;]+|\s{2,}/);
+      if (parts.length >= 2) {
+        const userId = parts[0].trim();
+        const fullTime = parts[1].trim();
+        const verifyCode = parts[2]?.trim();
+        const punchCode = parts[3]?.trim();
+
+        let verifyType = "Visible Light Face";
+        if (verifyCode === "1") verifyType = "Fingerprint";
+        else if (verifyCode === "3") verifyType = "RFID Card";
+        else if (verifyCode === "15") verifyType = "Visible Light Face";
+
+        let punchType = "Check-In";
+        if (punchCode === "1") punchType = "Check-Out";
+
+        const [date, time] = fullTime.includes(" ") ? fullTime.split(" ") : [new Date().toISOString().split("T")[0], "09:00:00"];
+
+        liveZKTecoLogs.unshift({
+          id: `zk-adms-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          userId,
+          timestamp: fullTime,
+          date,
+          time: time || "09:00:00",
+          verifyType,
+          punchType,
+          deviceSn: sn,
+          deviceModel: "SenseFace M2F-LR",
+        });
+      }
+    });
+  }
+
+  res.setHeader("Content-Type", "text/plain");
+  res.send("OK");
+});
+
+app.get("/iclock/getrequest", (req, res) => {
+  res.setHeader("Content-Type", "text/plain");
+  res.send("OK");
+});
+
+app.post("/iclock/devicecmd", (req, res) => {
+  res.setHeader("Content-Type", "text/plain");
+  res.send("OK");
+});
+
+// REST API for Frontend to poll Live ZKTeco Logs
+app.get("/api/zkteco/live-logs", (req, res) => {
+  res.json({
+    success: true,
+    deviceModel: "SenseFace M2F-LR",
+    deviceSn: "UFS2254700071",
+    totalLogs: liveZKTecoLogs.length,
+    logs: liveZKTecoLogs.slice(0, 50),
+  });
+});
+
+// REST API to simulate punch from device
+app.post("/api/zkteco/simulate-punch", (req, res) => {
+  const { userId, verifyType, punchType } = req.body;
+  const now = new Date();
+  const dateStr = now.toISOString().split("T")[0];
+  const timeStr = now.toTimeString().split(" ")[0];
+
+  const logItem = {
+    id: `zk-live-${Date.now()}`,
+    userId: userId || "101",
+    timestamp: `${dateStr} ${timeStr}`,
+    date: dateStr,
+    time: timeStr,
+    verifyType: verifyType || "Visible Light Face",
+    punchType: punchType || "Check-In",
+    deviceSn: "UFS2254700071",
+    deviceModel: "SenseFace M2F-LR",
+  };
+
+  liveZKTecoLogs.unshift(logItem);
+  res.json({ success: true, log: logItem });
+});
 
 let aiClient: GoogleGenAI | null = null;
 function getGenAI() {

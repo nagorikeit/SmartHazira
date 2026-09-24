@@ -48,6 +48,7 @@ import { AttendanceLinkModal } from './components/AttendanceLinkModal';
 import { PublicAttendancePortal } from './components/PublicAttendancePortal';
 import { BiometricManagementModal } from './components/BiometricManagementModal';
 import { EditMemberModal } from './components/EditMemberModal';
+import { ZKTecoDeviceModal } from './components/ZKTecoDeviceModal';
 import { ScheduleSettingsView } from './components/ScheduleSettingsView';
 import { FooterNavigation } from './components/FooterNavigation';
 import { exportAttendanceCSV, saveStudents } from './utils/storage';
@@ -323,8 +324,28 @@ export default function App() {
   const [isNavMenuOpen, setIsNavMenuOpen] = useState<boolean>(false);
   const [isCompanyProfileModalOpen, setIsCompanyProfileModalOpen] = useState<boolean>(false);
   const [isAttendanceLinkModalOpen, setIsAttendanceLinkModalOpen] = useState<boolean>(false);
-  const [isPublicPortalOpen, setIsPublicPortalOpen] = useState<boolean>(false);
-  const [publicPortalGeofence, setPublicPortalGeofence] = useState<boolean>(false);
+  const [isPublicPortalOpen, setIsPublicPortalOpen] = useState<boolean>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash || '';
+      return urlParams.get('mode') === 'attendance' || 
+             urlParams.get('link') === 'attendance' || 
+             urlParams.get('portal') === 'attendance' ||
+             hash.includes('mode=attendance') ||
+             hash.includes('portal=attendance');
+    } catch {
+      return false;
+    }
+  });
+  const [publicPortalGeofence, setPublicPortalGeofence] = useState<boolean>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('geo') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [isZKTecoModalOpen, setIsZKTecoModalOpen] = useState<boolean>(false);
   const [isBiometricsModalOpen, setIsBiometricsModalOpen] = useState<boolean>(false);
   const [selectedStudentForBiometrics, setSelectedStudentForBiometrics] = useState<Student | null>(null);
   const [isEditMemberModalOpen, setIsEditMemberModalOpen] = useState<boolean>(false);
@@ -523,6 +544,34 @@ export default function App() {
     saveAuditLogToFirestore(newLog);
   };
 
+  const handleBulkStudentsAdded = (newStudents: Student[]) => {
+    if (!newStudents || newStudents.length === 0) return;
+    setStudents(prev => {
+      const existingRolls = new Set(prev.map(s => String(s.roll).trim()));
+      const filtered = newStudents.filter(s => !existingRolls.has(String(s.roll).trim()));
+      if (filtered.length === 0) return prev;
+      const updated = [...prev, ...filtered];
+      saveStudents(updated);
+      return updated;
+    });
+
+    newStudents.forEach(s => {
+      saveMemberToFirestore(s);
+    });
+
+    const newLog: AuditLogItem = {
+      id: `log-bulk-std-${Date.now()}`,
+      action: 'Bulk Workers Imported',
+      userRole: currentRole,
+      targetMember: `${newStudents.length} জন কর্মী`,
+      timestamp: new Date().toLocaleTimeString('bn-BD'),
+      details: `ZKTeco সফটওয়্যার / এক্সেল থেকে মোট ${newStudents.length} জন কর্মী সফলভাবে যুক্ত করা হয়েছে`,
+      status: 'Success'
+    };
+    setAuditLogs(prev => [newLog, ...prev]);
+    saveAuditLogToFirestore(newLog);
+  };
+
   const handleSaveBiometrics = (updatedStudent: Student) => {
     setStudents(prev => {
       const updated = prev.map(s => s.id === updatedStudent.id ? updatedStudent : s);
@@ -710,6 +759,7 @@ export default function App() {
         onSelectLoggedInStudent={(std) => setSelectedLoggedInStudentId(std.id)}
         onSetCurrentUser={setCurrentUser}
         orgCategory={orgCategory}
+        onOpenPublicPortal={() => setIsPublicPortalOpen(true)}
       />
     );
   }
@@ -814,6 +864,8 @@ export default function App() {
                 onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
                 onOpenAuditLog={() => setIsAuditLogOpen(true)}
                 onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
+                onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+                onOpenZKTecoDeviceModal={() => setIsZKTecoModalOpen(true)}
                 onOpenBiometricsModal={(student) => {
                   setSelectedStudentForBiometrics(student);
                   setIsBiometricsModalOpen(true);
@@ -836,6 +888,7 @@ export default function App() {
                 onEditStudent={handleOpenEditModal}
                 onDeleteStudent={handleDeleteMember}
                 onApproveBiometrics={handleApproveBiometrics}
+                onBulkStudentsAdded={handleBulkStudentsAdded}
               />
             ) : activeTab === 'payroll' ? (
               <PayrollView
@@ -1016,6 +1069,7 @@ export default function App() {
         orgInfo={orgInfo}
         onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
         onOpenFingerprintScanner={() => setIsFingerprintScannerOpen(true)}
+        onOpenZKTecoDeviceModal={() => setIsZKTecoModalOpen(true)}
         onOpenGeofenceModal={() => setIsGeofenceScannerOpen(true)}
         onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
         onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
@@ -1086,6 +1140,17 @@ export default function App() {
         company={activeCompany || registeredCompanies[0] || null}
         orgInfo={orgInfo}
         onOpenPublicPortal={() => setIsPublicPortalOpen(true)}
+      />
+
+      {/* ZKTeco K40 & Biometric Machine Log History Modal */}
+      <ZKTecoDeviceModal
+        isOpen={isZKTecoModalOpen}
+        onClose={() => setIsZKTecoModalOpen(false)}
+        students={students}
+        attendanceRecords={attendanceRecords}
+        onAttendanceUpdated={handleAttendanceUpdated}
+        orgInfo={orgInfo}
+        onBulkStudentsAdded={handleBulkStudentsAdded}
       />
 
       {/* Employee / Member Biometric Management Modal (Add, Update, Remove Face & Fingerprint) */}

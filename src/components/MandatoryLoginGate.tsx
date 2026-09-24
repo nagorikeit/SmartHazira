@@ -40,6 +40,7 @@ interface MandatoryLoginGateProps {
   onSelectLoggedInStudent: (student: Student) => void;
   onSetCurrentUser: (user: User) => void;
   orgCategory: OrgCategoryKey;
+  onOpenPublicPortal?: () => void;
 }
 
 export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
@@ -52,6 +53,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   onSelectLoggedInStudent,
   onSetCurrentUser,
   orgCategory,
+  onOpenPublicPortal,
 }) => {
   const [activeTab, setActiveTab] = useState<'login' | 'register_company'>('login');
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
@@ -307,6 +309,39 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
             ক্লাউড ভিত্তিক বায়োমেট্রিক ফেস রিকগনিশন, জিওফেন্সিং ও স্বয়ংক্রিয় উপস্থিতি ব্যবস্থাপনা
           </p>
         </div>
+
+        {/* Worker Public Attendance Self-Service Card (No Password Needed) */}
+        {onOpenPublicPortal && (
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-xl border border-indigo-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center space-x-3.5 text-center sm:text-left">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0 text-indigo-300">
+                <Camera className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <h3 className="font-black text-sm sm:text-base text-white">
+                    কর্মী সেলফ-সার্ভিস হাজিরা পোর্টাল
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    কোনো পাসওয়ার্ড লাগবে না
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  লিংক বা কিউআর কোড স্ক্যানকারী কর্মীরা এডমিন পাসওয়ার্ড ছাড়াই সরাসরি ফেস স্ক্যান বা আইডি দিয়ে হাজিরা দিন
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenPublicPortal}
+              className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 active:scale-95 text-slate-950 font-black rounded-2xl text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/25 cursor-pointer shrink-0 transition"
+            >
+              <span>সরাসরি হাজিরা দিন</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* 1-Click Instant Login (Bypasses All Cookie Blockers) */}
         <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-500/40 rounded-3xl p-4 sm:p-5 shadow-lg space-y-3">

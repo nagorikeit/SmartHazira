@@ -40,7 +40,8 @@ import {
   Sun,
   Moon,
   Sunrise,
-  Sunset
+  Sunset,
+  Cpu
 } from 'lucide-react';
 
 interface TeacherDashboardProps {
@@ -58,6 +59,8 @@ interface TeacherDashboardProps {
   onOpenSmartIdCard?: () => void;
   onOpenAuditLog?: () => void;
   onOpenFingerprintScanner?: () => void;
+  onOpenAttendanceLinkModal?: () => void;
+  onOpenZKTecoDeviceModal?: () => void;
   onOpenBiometricsModal?: (student: Student) => void;
   onOpenEditModal?: (student: Student) => void;
   onNavigateToUsers?: () => void;
@@ -78,6 +81,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onOpenSmartIdCard,
   onOpenAuditLog,
   onOpenFingerprintScanner,
+  onOpenAttendanceLinkModal,
+  onOpenZKTecoDeviceModal,
   onOpenBiometricsModal,
   onOpenEditModal,
   onNavigateToUsers,
@@ -282,6 +287,77 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           </button>
         </div>
       )}
+
+      {/* Quick Attendance Methods & Hardware Devices Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {/* 1. AI Face Recognition */}
+        <button
+          onClick={onOpenFaceScanner}
+          className="p-3 bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl shadow-xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
+        >
+          <div className="p-2 bg-white/20 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+            <Camera className="w-5 h-5 text-white" />
+          </div>
+          <div className="truncate">
+            <p className="font-extrabold text-xs">AI ফেস ক্যামেরা</p>
+            <p className="text-[10px] text-emerald-100 opacity-90">স্বয়ংক্রিয় লাইভ ফেস স্ক্যান</p>
+          </div>
+        </button>
+
+        {/* 2. Public Self-Service Attendance Link & QR (No Login Required) */}
+        {onOpenAttendanceLinkModal && (
+          <button
+            onClick={onOpenAttendanceLinkModal}
+            className="p-3 bg-gradient-to-br from-indigo-600 to-slate-800 hover:from-indigo-500 hover:to-slate-700 text-white rounded-2xl shadow-xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
+          >
+            <div className="p-2 bg-white/20 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+              <QrCode className="w-5 h-5 text-white" />
+            </div>
+            <div className="truncate">
+              <div className="flex items-center space-x-1">
+                <p className="font-extrabold text-xs">পাবলিক কিউআর ও লিংক</p>
+                <span className="px-1 py-0.2 bg-emerald-400 text-slate-950 font-black text-[9px] rounded">নো-লগইন</span>
+              </div>
+              <p className="text-[10px] text-indigo-100 opacity-90">কর্মীদের সেলফ-হাজিরা লিংক</p>
+            </div>
+          </button>
+        )}
+
+        {/* 3. ZKTeco Biometric Machine & Log History (SenseFace M2F-LR) */}
+        {onOpenZKTecoDeviceModal && (
+          <button
+            onClick={onOpenZKTecoDeviceModal}
+            className="p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 hover:bg-slate-800 text-white rounded-2xl shadow-xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group border border-emerald-500/30"
+          >
+            <div className="p-2 bg-gradient-to-tr from-emerald-500/20 to-teal-400/20 text-emerald-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+              <Cpu className="w-5 h-5" />
+            </div>
+            <div className="truncate">
+              <div className="flex items-center space-x-1">
+                <p className="font-extrabold text-xs">SenseFace M2F-LR</p>
+                <span className="px-1 py-0.2 bg-emerald-500/30 text-emerald-300 font-black text-[9px] rounded">ADMS লাইভ</span>
+              </div>
+              <p className="text-[10px] text-slate-300 opacity-90">ফেস, ফিঙ্গার ও ক্লাউড সিঙ্ক</p>
+            </div>
+          </button>
+        )}
+
+        {/* 4. Mobile Biometric / GPS */}
+        {onOpenFingerprintScanner && (
+          <button
+            onClick={onOpenFingerprintScanner}
+            className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-2xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
+          >
+            <div className="p-2 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+              <Fingerprint className="w-5 h-5" />
+            </div>
+            <div className="truncate">
+              <p className="font-extrabold text-xs">বায়োমেট্রিক সেন্সর</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">USB / ফিঙ্গারপ্রিন্ট রিডার</p>
+            </div>
+          </button>
+        )}
+      </div>
 
       {/* Unified Table Section */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">

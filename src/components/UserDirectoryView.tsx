@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Users, 
   Search, 
@@ -26,8 +26,12 @@ import {
   Check,
   X,
   Smartphone,
-  ShieldAlert
+  ShieldAlert,
+  FileSpreadsheet,
+  UploadCloud,
+  ArrowRight
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Student, ClassSubject } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { isFaceActuallyRegistered, isFingerprintActuallyRegistered, isFingerprintPendingApproval, isFingerprintApproved } from '../utils/faceMatching';
@@ -43,6 +47,7 @@ interface UserDirectoryViewProps {
   onEditStudent?: (student: Student) => void;
   onDeleteStudent?: (studentId: string) => void;
   onApproveBiometrics?: (studentId: string, status: 'Approved' | 'Rejected' | 'None') => void;
+  onBulkStudentsAdded?: (newStudents: Student[]) => void;
 }
 
 export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
@@ -56,6 +61,7 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   onEditStudent,
   onDeleteStudent,
   onApproveBiometrics,
+  onBulkStudentsAdded,
 }) => {
   const { terminology } = orgInfo;
 
@@ -63,6 +69,106 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [isBulkExcelModalOpen, setIsBulkExcelModalOpen] = useState(false);
+  const [excelPreviewWorkers, setExcelPreviewWorkers] = useState<{ roll: string; name: string; dept: string; isExisting: boolean }[]>([]);
+  const [excelNotice, setExcelNotice] = useState<string | null>(null);
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleExcelFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const buffer = evt.target?.result;
+        if (!buffer) return;
+
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+        if (rows.length === 0) {
+          setExcelNotice('এক্সেলে কোনো কর্মীর তথ্য পাওয়া যায়নি।');
+          return;
+        }
+
+        const existingRolls = new Set(students.map(s => String(s.roll).trim()));
+        const parsed: typeof excelPreviewWorkers = [];
+
+        rows.forEach((row, idx) => {
+          const keys = Object.keys(row);
+          const idKey = keys.find(k => {
+            const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return lk.includes('id') || lk.includes('badgenumber') || lk.includes('acno') || lk.includes('enroll') || lk.includes('roll');
+          }) || keys[0];
+
+          const nameKey = keys.find(k => {
+            const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return lk.includes('name') || lk.includes('employee') || lk.includes('worker') || lk.includes('নাম');
+          }) || keys[1];
+
+          const deptKey = keys.find(k => {
+            const lk = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+            return lk.includes('dept') || lk.includes('department') || lk.includes('title') || lk.includes('designation');
+          });
+
+          const roll = String(row[idKey] ?? '').trim() || String(idx + 101);
+          const name = String(row[nameKey] ?? '').trim() || `কর্মী #${roll}`;
+          const dept = deptKey ? String(row[deptKey] ?? '').trim() : 'জেনারেল ওয়ার্কার্স';
+
+          parsed.push({
+            roll,
+            name,
+            dept: dept || 'জেনারেল ওয়ার্কার্স',
+            isExisting: existingRolls.has(roll)
+          });
+        });
+
+        setExcelPreviewWorkers(parsed);
+        const newCount = parsed.filter(p => !p.isExisting).length;
+        setExcelNotice(`মোট ${parsed.length} জন কর্মী চিহ্নিত (${newCount} জন একদম নতুন)`);
+      } catch {
+        setExcelNotice('ফাইলটি পড়তে সমস্যা হয়েছে। সঠিক এক্সেল বা CSV ফাইল দিন।');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleConfirmImport = () => {
+    if (!onBulkStudentsAdded || excelPreviewWorkers.length === 0) return;
+    const newWorkersOnly = excelPreviewWorkers.filter(w => !w.isExisting);
+    if (newWorkersOnly.length === 0) {
+      alert('সকল কর্মী ইতোমধ্যে সিস্টেমে অন্তর্ভুক্ত রয়েছে।');
+      setIsBulkExcelModalOpen(false);
+      return;
+    }
+
+    const newStudentObjects: Student[] = newWorkersOnly.map(w => ({
+      id: `std-zk-${Date.now()}-${w.roll}-${Math.random().toString(36).substring(2, 6)}`,
+      name: w.name,
+      nameBangla: w.name,
+      roll: w.roll,
+      classId: 'default',
+      className: w.dept || 'জেনারেল ওয়ার্কার্স',
+      department: w.dept || 'জেনারেল ওয়ার্কার্স',
+      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      gender: 'Male',
+      guardianPhone: '',
+      parentPhone: '',
+      attendanceStreak: 0,
+      active: true,
+      faceRegistered: false,
+      fingerprintRegistered: true,
+      designation: w.dept || 'ওয়ার্কার',
+      joinDate: new Date().toISOString().split('T')[0]
+    }));
+
+    onBulkStudentsAdded(newStudentObjects);
+    setIsBulkExcelModalOpen(false);
+    setExcelPreviewWorkers([]);
+    setExcelNotice(null);
+  };
 
   // Pending biometric approvals
   const pendingBiometricStudents = students.filter(isFingerprintPendingApproval);
@@ -116,6 +222,17 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+          {onBulkStudentsAdded && (
+            <button
+              onClick={() => setIsBulkExcelModalOpen(true)}
+              className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-xs rounded-2xl border border-emerald-300 dark:border-emerald-700/60 transition flex items-center space-x-2 cursor-pointer shadow-xs"
+              title="কম্পিউটারের ZK সফটওয়্যার বা Excel থেকে সকল কর্মী ইমপোর্ট করুন"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>কম্পিউটার/Excel থেকে কর্মী আনুন</span>
+            </button>
+          )}
+
           {onOpenSmartIdCard && (
             <button
               onClick={onOpenSmartIdCard}
@@ -135,6 +252,101 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Bulk Excel Import Modal */}
+      {isBulkExcelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">কম্পিউটার সফটওয়্যার / Excel থেকে কর্মী ইমপোর্ট</h3>
+                  <p className="text-[11px] text-slate-500">আপনাকে পুনরায় নতুন করে কারো তথ্য হাতে এন্ট্রি করতে হবে না</p>
+                </div>
+              </div>
+              <button onClick={() => setIsBulkExcelModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-xs space-y-2">
+              <p className="font-bold text-emerald-900 dark:text-emerald-300">💡 কীভাবে কম্পিউটার সফটওয়্যার থেকে ফাইল পাবেন?</p>
+              <p className="text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+                আপনার পিসির <b>ZKTime / ZKBio Time / Att2008</b> সফটওয়্যার ওপেন করুন &gt; <b>Personnel / Employee</b> লিস্টে যান &gt; <b>Export</b> বাটনে ক্লিক করে <b>Excel (.xlsx)</b> বা <b>CSV</b> ফরম্যাটে সেভ করুন।
+              </p>
+            </div>
+
+            <input
+              type="file"
+              ref={excelInputRef}
+              accept=".xlsx,.xls,.csv"
+              onChange={handleExcelFileUpload}
+              className="hidden"
+            />
+
+            <div 
+              onClick={() => excelInputRef.current?.click()}
+              className="border-2 border-dashed border-emerald-500/40 hover:border-emerald-500 bg-slate-50 dark:bg-slate-800/40 hover:bg-emerald-50/20 transition rounded-2xl p-6 text-center cursor-pointer space-y-2"
+            >
+              <UploadCloud className="w-8 h-8 text-emerald-500 mx-auto" />
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">এক্সেল (.xlsx, .xls) বা CSV ফাইল সিলেক্ট করতে ক্লিক করুন</p>
+              <p className="text-[10px] text-slate-500">মেশিন বা কম্পিউটার সফটওয়্যারের এক্সপোর্টকৃত ফাইল</p>
+            </div>
+
+            {excelNotice && (
+              <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 text-center">
+                {excelNotice}
+              </div>
+            )}
+
+            {excelPreviewWorkers.length > 0 && (
+              <div className="space-y-2 max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-50 dark:bg-slate-950">
+                <p className="text-[11px] font-bold text-slate-500 px-2">কর্মীদের প্রিভিউ ({excelPreviewWorkers.length} জন):</p>
+                <div className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                  {excelPreviewWorkers.slice(0, 10).map((w, idx) => (
+                    <div key={idx} className="p-1.5 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">#{w.roll}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{w.name}</span>
+                        <span className="text-[10px] text-slate-400">({w.dept})</span>
+                      </div>
+                      {w.isExisting ? (
+                        <span className="text-[10px] text-slate-400">অলরেডি আছে</span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-500">নতুন</span>
+                      )}
+                    </div>
+                  ))}
+                  {excelPreviewWorkers.length > 10 && (
+                    <p className="text-[10px] text-center text-slate-400 py-1">... এবং আরো {excelPreviewWorkers.length - 10} জন</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkExcelModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                বাতিল
+              </button>
+              <button
+                type="button"
+                disabled={excelPreviewWorkers.length === 0}
+                onClick={handleConfirmImport}
+                className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
+              >
+                সকল নতুন কর্মী যোগ করুন ({excelPreviewWorkers.filter(w => !w.isExisting).length} জন)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pending Biometric Approvals Banner */}
       {pendingBiometricStudents.length > 0 && (
