@@ -139,18 +139,13 @@ export const OrgCategorySelectorModal: React.FC<OrgCategorySelectorModalProps> =
             </div>
           )}
 
-          {/* Option to load category sample data */}
-          <label className="flex items-center space-x-2.5 cursor-pointer bg-amber-50 p-3 rounded-2xl border border-amber-200 text-xs text-amber-900">
-            <input
-              type="checkbox"
-              checked={shouldLoadDefaults}
-              onChange={(e) => setShouldLoadDefaults(e.target.checked)}
-              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-amber-300"
-            />
-            <span className="font-medium">
-              এই ক্যাটাগরির জন্য নমুনা বিভাগ ও কর্মী/সদস্য ডেটা লোড করুন
+          {/* Notice: Members preserved, only terminology updates */}
+          <div className="flex items-center space-x-2.5 bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-xs text-emerald-900">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-bold">
+              প্রতিষ্ঠানের ধরন পরিবর্তন করলে আপনার বিদ্যমান সকল সদস্য অক্ষুণ্ণ থাকবে, শুধুমাত্র পদবী, বিভাগ ও শব্দাবলী আপডেট হবে।
             </span>
-          </label>
+          </div>
 
         </div>
 
@@ -159,17 +154,17 @@ export const OrgCategorySelectorModal: React.FC<OrgCategorySelectorModalProps> =
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             বাতিল করুন
           </button>
           <button
             type="button"
             onClick={() => {
-              onSelectCategory(selectedKey, shouldLoadDefaults);
+              onSelectCategory(selectedKey, false);
               onClose();
             }}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5"
+            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 cursor-pointer"
           >
             <Check className="w-4 h-4" />
             <span>ক্যাটাগরি প্রয়োগ করুন</span>

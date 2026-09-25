@@ -17,7 +17,8 @@ import {
   Check, 
   AlertTriangle,
   Layers,
-  Info
+  Info,
+  Plus
 } from 'lucide-react';
 import { OrganizationScheduleSettings, GeofenceSettings } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
@@ -47,6 +48,7 @@ export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
   const [userLiveCoords, setUserLiveCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [liveDistance, setLiveDistance] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [extraWifiInput, setExtraWifiInput] = useState<string>('');
 
   useEffect(() => {
     if (isOpen) {
@@ -171,14 +173,14 @@ export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="font-black text-base sm:text-lg text-slate-900 dark:text-white">
-                  GPS ও জিওফেন্সিং কনফিগারেশন
+                  ম্যানেজমেন্ট এরিয়া: অফিস লোকেশন ও Wi-Fi কনফিগারেশন
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                  পরিধি সীমানা
+                  পরিধি ও Wi-Fi
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                অফিস / ক্যাম্পাস পরিধি সীমানা, GPS কোঅর্ডিনেট ও লোকেশন ভেরিফিকেশন
+                অফিস / ক্যাম্পাস পরিধি সীমানা, GPS কো-অর্ডিনেট ও অফিস Wi-Fi ভেরিফিকেশন
               </p>
             </div>
           </div>
@@ -446,22 +448,142 @@ export const GeofenceScannerModal: React.FC<GeofenceScannerModalProps> = ({
             </div>
           </div>
 
-          {/* Section 7: Wi-Fi Restriction (Optional) */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
-            <label className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center space-x-1.5 text-xs">
-              <Wifi className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-              <span>অফিস Wi-Fi নেটওয়ার্ক রেস্ট্রিকশন (ঐচ্ছিক SSID)</span>
-            </label>
-            <input
-              type="text"
-              value={localGeofence.wifiSSID || ''}
-              onChange={(e) => setLocalGeofence(prev => ({ ...prev, wifiSSID: e.target.value }))}
-              placeholder="যেমন: Office_WiFi_5G"
-              className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold placeholder:text-slate-400 focus:border-emerald-600 focus:outline-hidden"
-            />
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              কর্মীরা নির্দিষ্ট অফিস ওয়াই-ফাইতে কানেক্টেড থাকলে লোকেশন দ্রুত ভেরিফাই করা হবে।
-            </p>
+          {/* Section 7: Wi-Fi Restriction & Management Area Network */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center space-x-1.5 text-xs">
+                <Wifi className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <span>অফিস Wi-Fi নেটওয়ার্ক সেটিংস (SSID)</span>
+              </label>
+
+              <label className="flex items-center space-x-1.5 cursor-pointer text-[11px] font-bold text-teal-700 dark:text-teal-300">
+                <input
+                  type="checkbox"
+                  checked={localGeofence.requireWifi || false}
+                  onChange={(e) => setLocalGeofence(prev => ({ ...prev, requireWifi: e.target.checked }))}
+                  className="w-3.5 h-3.5 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                />
+                <span>Wi-Fi বাধ্যতামূলক করুন</span>
+              </label>
+            </div>
+
+            {/* Primary Wi-Fi */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                প্রাথমিক Wi-Fi SSID *
+              </label>
+              <input
+                type="text"
+                value={localGeofence.wifiSSID || localGeofence.wifiSsid || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLocalGeofence(prev => ({ ...prev, wifiSSID: val, wifiSsid: val }));
+                }}
+                placeholder="যেমন: Office_WiFi_5G"
+                className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono font-bold placeholder:font-sans placeholder:text-slate-400 focus:border-emerald-600 focus:outline-hidden text-xs"
+              />
+            </div>
+
+            {/* Multiple Wi-Fi Networks */}
+            <div className="space-y-1.5 pt-1">
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                অতিরিক্ত ব্যাকআপ Wi-Fi তালিকা
+              </label>
+
+              <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                {(!localGeofence.wifiNetworks || localGeofence.wifiNetworks.length === 0) && (
+                  <span className="text-[10px] text-slate-400">কোনো অতিরিক্ত Wi-Fi নেই</span>
+                )}
+                {localGeofence.wifiNetworks?.map((ssid) => (
+                  <span
+                    key={ssid}
+                    className="px-2.5 py-0.5 bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-200 rounded-lg text-xs font-mono font-bold flex items-center space-x-1 border border-teal-300 dark:border-teal-700"
+                  >
+                    <span>{ssid}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = (localGeofence.wifiNetworks || []).filter(s => s !== ssid);
+                        setLocalGeofence(prev => ({ ...prev, wifiNetworks: updated }));
+                      }}
+                      className="p-0.5 hover:bg-teal-200 rounded text-teal-700 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex space-x-2 pt-1">
+                <input
+                  type="text"
+                  value={extraWifiInput}
+                  onChange={(e) => setExtraWifiInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = extraWifiInput.trim();
+                      if (val) {
+                        const current = localGeofence.wifiNetworks || [];
+                        if (!current.includes(val)) {
+                          setLocalGeofence(prev => ({ ...prev, wifiNetworks: [...current, val] }));
+                          setExtraWifiInput('');
+                        }
+                      }
+                    }
+                  }}
+                  placeholder="অন্যান্য রাউটার SSID..."
+                  className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-mono text-xs focus:border-teal-600 focus:outline-hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const val = extraWifiInput.trim();
+                    if (val) {
+                      const current = localGeofence.wifiNetworks || [];
+                      if (!current.includes(val)) {
+                        setLocalGeofence(prev => ({ ...prev, wifiNetworks: [...current, val] }));
+                        setExtraWifiInput('');
+                      }
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl flex items-center space-x-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>যোগ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Router MAC & IP */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                  রাউটার BSSID / MAC (ঐচ্ছিক)
+                </label>
+                <input
+                  type="text"
+                  value={localGeofence.bssid || ''}
+                  onChange={(e) => setLocalGeofence(prev => ({ ...prev, bssid: e.target.value }))}
+                  placeholder="AA:BB:CC:DD:EE:FF"
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
+                  অফিস পাবলিক IP (ঐচ্ছিক)
+                </label>
+                <input
+                  type="text"
+                  value={localGeofence.ipWhitelist || ''}
+                  onChange={(e) => setLocalGeofence(prev => ({ ...prev, ipWhitelist: e.target.value }))}
+                  placeholder="103.145.0.0/16"
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-mono text-xs"
+                />
+              </div>
+            </div>
+
           </div>
 
         </div>

@@ -279,6 +279,8 @@ export interface GeofenceSettings {
   allowRemoteCheckIn: boolean;
   wifiSsid?: string;
   wifiSSID?: string;
+  wifiNetworks?: string[];
+  requireWifi?: boolean;
   ipWhitelist?: string;
   bssid?: string;
   enabled?: boolean;

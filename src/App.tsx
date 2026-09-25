@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, ClassSubject, Student, AttendanceRecord, AuditLogItem, RegisteredCompany, OrganizationScheduleSettings } from './types';
 import { getStoredClasses, getStoredStudents, getStoredAttendance, getDailySummaryForClass } from './utils/storage';
 import { OrgCategoryKey, ORG_CATEGORIES, getStoredOrgCategory, saveOrgCategory } from './utils/organizationConfig';
@@ -223,7 +223,7 @@ export default function App() {
     } catch {
       // ignore
     }
-    handleSelectOrgCategory(company.category, true);
+    handleSelectOrgCategory(company.category, false);
     handleRoleChange('teacher');
     const newLog: AuditLogItem = {
       id: `log-sw-${Date.now()}`,
@@ -432,45 +432,103 @@ export default function App() {
 
   const orgInfo = ORG_CATEGORIES[orgCategory] || ORG_CATEGORIES.educational;
 
-  const handleSelectOrgCategory = (newCategoryKey: OrgCategoryKey, loadDefaults: boolean) => {
+  const handleSelectOrgCategory = (newCategoryKey: OrgCategoryKey, _loadDefaults: boolean = false) => {
     setOrgCategory(newCategoryKey);
     saveOrgCategory(newCategoryKey);
 
-    if (loadDefaults) {
-      const newClasses = CATEGORY_CLASSES[newCategoryKey] || CATEGORY_CLASSES.educational;
-      const newMembers = CATEGORY_MEMBERS[newCategoryKey] || CATEGORY_MEMBERS.educational;
-      const newAttendance = generateInitialAttendanceRecords(newCategoryKey);
-
-      setClasses(newClasses);
-      setStudents(newMembers);
-      setAttendanceRecords(newAttendance);
-
-      if (newClasses.length > 0) {
-        setSelectedClassId(newClasses[0].id);
+    // If active company exists, update company's category in state, Firestore, and storage
+    if (activeCompany) {
+      const updatedCompany: RegisteredCompany = {
+        ...activeCompany,
+        category: newCategoryKey
+      };
+      setActiveCompany(updatedCompany);
+      saveCompanyToFirestore(updatedCompany);
+      setRegisteredCompanies(prev => prev.map(c => c.id === updatedCompany.id ? updatedCompany : c));
+      try {
+        localStorage.setItem('smart_hazira_active_company_v1', JSON.stringify(updatedCompany));
+      } catch {
+        // ignore
       }
-
-      localStorage.setItem('smart_hazira_classes_v1', JSON.stringify(newClasses));
-      localStorage.setItem('smart_hazira_students_v1', JSON.stringify(newMembers));
-      localStorage.setItem('smart_hazira_attendance_v1', JSON.stringify(newAttendance));
     }
+
+    // Update available departments/classes template for this category
+    const newClasses = CATEGORY_CLASSES[newCategoryKey] || CATEGORY_CLASSES.educational;
+    setClasses(newClasses);
+    try {
+      localStorage.setItem('smart_hazira_classes_v1', JSON.stringify(newClasses));
+    } catch {
+      // ignore
+    }
+
+    // Show all members by default so changing category does not hide any user
+    setSelectedClassId('all');
+
+    // CRITICAL: NEVER overwrite or wipe students or attendance records!
+    // Existing members remain 100% intact, only terminology & labels change.
   };
+
+  // Isolate members strictly per active company (Multi-tenancy isolation - Requirement 2)
+  const currentCompanyId = activeCompany?.id;
+
+  const companyStudents = useMemo(() => {
+    // If Super Admin, show all members across companies
+    if (currentRole === 'super_admin') {
+      return students;
+    }
+    if (!currentCompanyId) {
+      return students;
+    }
+    // Company admin or employee: STRICTLY show only members belonging to this specific company!
+    return students.filter(s => s.companyId === currentCompanyId);
+  }, [students, currentCompanyId, currentRole]);
+
+  const companyAttendanceRecords = useMemo(() => {
+    if (currentRole === 'super_admin' || !currentCompanyId) {
+      return attendanceRecords;
+    }
+    const memberIds = new Set(companyStudents.map(s => s.id));
+    return attendanceRecords.filter(r => memberIds.has(r.studentId));
+  }, [attendanceRecords, companyStudents, currentCompanyId, currentRole]);
+
+  // Ensure pure white background and light mode throughout the whole document
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.body.classList.remove('dark');
+      document.body.classList.add('light');
+    }
+  }, []);
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
   const todayDateStr = new Date().toISOString().split('T')[0];
 
-  // Daily Summary statistics
-  const dailySummary = selectedClassId
-    ? getDailySummaryForClass(selectedClassId, todayDateStr)
-    : {
-        date: todayDateStr,
-        classId: '',
-        totalEnrolled: 0,
-        present: 0,
-        absent: 0,
-        late: 0,
-        percentage: 0,
-        autoSaved: true,
-      };
+  // Real-time daily statistics isolated strictly for the active company
+  const companyTodayAttendance = useMemo(() => {
+    return companyAttendanceRecords.filter(r => r.date === todayDateStr);
+  }, [companyAttendanceRecords, todayDateStr]);
+
+  const companyStats = useMemo(() => {
+    const total = companyStudents.length;
+    const present = companyTodayAttendance.filter(r => r.status === 'Present').length;
+    const late = companyTodayAttendance.filter(r => r.status === 'Late').length;
+    const absent = Math.max(0, total - (present + late));
+    const percentage = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
+    return { total, present, late, absent, percentage };
+  }, [companyStudents, companyTodayAttendance]);
+
+  // Daily Summary statistics fallback
+  const dailySummary = {
+    date: todayDateStr,
+    classId: selectedClassId || 'all',
+    totalEnrolled: companyStats.total,
+    present: companyStats.present,
+    absent: companyStats.absent,
+    late: companyStats.late,
+    percentage: companyStats.percentage,
+    autoSaved: true,
+  };
 
   const handleAttendanceUpdated = (newRecord: AttendanceRecord) => {
     setAttendanceRecords(prev => {
@@ -504,20 +562,39 @@ export default function App() {
   };
 
   const handleStudentAdded = (newStudent: Student) => {
+    const targetCompId = activeCompany?.id || newStudent.companyId || 'default-company';
+    const targetCompName = activeCompany?.nameBangla || newStudent.companyName || 'সংশ্লিষ্ট প্রতিষ্ঠান';
+    const scopedStudent: Student = {
+      ...newStudent,
+      companyId: targetCompId,
+      companyName: targetCompName
+    };
+
     setStudents(prev => {
-      const updated = [...prev, newStudent];
+      const updated = [...prev, scopedStudent];
       localStorage.setItem('smart_hazira_students_v1', JSON.stringify(updated));
       return updated;
     });
-    saveMemberToFirestore(newStudent);
+    saveMemberToFirestore(scopedStudent);
+
+    if (activeCompany) {
+      setRegisteredCompanies(prev => prev.map(c => {
+        if (c.id === activeCompany.id) {
+          const updated = { ...c, totalMembers: (c.totalMembers || 0) + 1 };
+          saveCompanyToFirestore(updated);
+          return updated;
+        }
+        return c;
+      }));
+    }
 
     const newLog: AuditLogItem = {
       id: `log-std-${Date.now()}`,
       action: 'New Member Registered',
       userRole: currentRole,
-      targetMember: newStudent.nameBangla,
+      targetMember: scopedStudent.nameBangla,
       timestamp: new Date().toLocaleTimeString('bn-BD'),
-      details: `আইডি: ${newStudent.roll}, বিভাগ: ${newStudent.className}`,
+      details: `কোম্পানি: ${targetCompName}, আইডি: ${scopedStudent.roll}, বিভাগ: ${scopedStudent.className}`,
       status: 'Success'
     };
     setAuditLogs(prev => [newLog, ...prev]);
@@ -526,26 +603,46 @@ export default function App() {
 
   const handleBulkStudentsAdded = (newStudents: Student[]) => {
     if (!newStudents || newStudents.length === 0) return;
+    const targetCompId = activeCompany?.id || 'default-company';
+    const targetCompName = activeCompany?.nameBangla || 'সংশ্লিষ্ট প্রতিষ্ঠান';
+
+    const scopedStudents = newStudents.map(s => ({
+      ...s,
+      companyId: s.companyId || targetCompId,
+      companyName: s.companyName || targetCompName,
+    }));
+
     setStudents(prev => {
-      const existingRolls = new Set(prev.map(s => String(s.roll).trim()));
-      const filtered = newStudents.filter(s => !existingRolls.has(String(s.roll).trim()));
+      const existingRolls = new Set(prev.filter(s => s.companyId === targetCompId).map(s => String(s.roll).trim()));
+      const filtered = scopedStudents.filter(s => !existingRolls.has(String(s.roll).trim()));
       if (filtered.length === 0) return prev;
       const updated = [...prev, ...filtered];
       saveStudents(updated);
       return updated;
     });
 
-    newStudents.forEach(s => {
+    scopedStudents.forEach(s => {
       saveMemberToFirestore(s);
     });
+
+    if (activeCompany) {
+      setRegisteredCompanies(prev => prev.map(c => {
+        if (c.id === activeCompany.id) {
+          const updated = { ...c, totalMembers: (c.totalMembers || 0) + scopedStudents.length };
+          saveCompanyToFirestore(updated);
+          return updated;
+        }
+        return c;
+      }));
+    }
 
     const newLog: AuditLogItem = {
       id: `log-bulk-std-${Date.now()}`,
       action: 'Bulk Workers Imported',
       userRole: currentRole,
-      targetMember: `${newStudents.length} জন কর্মী`,
+      targetMember: `${scopedStudents.length} জন কর্মী`,
       timestamp: new Date().toLocaleTimeString('bn-BD'),
-      details: `ZKTeco সফটওয়্যার / এক্সেল থেকে মোট ${newStudents.length} জন কর্মী সফলভাবে যুক্ত করা হয়েছে`,
+      details: `কোম্পানি: ${targetCompName}-এ মোট ${scopedStudents.length} জন কর্মী সফলভাবে যুক্ত করা হয়েছে`,
       status: 'Success'
     };
     setAuditLogs(prev => [newLog, ...prev]);
@@ -681,7 +778,7 @@ export default function App() {
     return (
       <PublicAttendancePortal
         classes={classes}
-        students={students}
+        students={companyStudents}
         onExitPortal={() => {
           setIsPublicPortalOpen(false);
           try {
@@ -778,11 +875,11 @@ export default function App() {
           {/* Top Summary Stats (Only on Attendance Dashboard tab) */}
           {activeTab === 'dashboard' && (
             <StatsOverview
-              totalStudents={dailySummary.totalEnrolled}
-              presentCount={dailySummary.present}
-              lateCount={dailySummary.late}
-              absentCount={dailySummary.absent}
-              attendancePercentage={dailySummary.percentage}
+              totalStudents={companyStats.total}
+              presentCount={companyStats.present}
+              lateCount={companyStats.late}
+              absentCount={companyStats.absent}
+              attendancePercentage={companyStats.percentage}
               selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
               autoSaved={dailySummary.autoSaved}
               orgInfo={orgInfo}
@@ -806,8 +903,8 @@ export default function App() {
                 classes={classes}
                 selectedClassId={selectedClassId}
                 onSelectClass={setSelectedClassId}
-                students={students}
-                attendanceRecords={attendanceRecords}
+                students={companyStudents}
+                attendanceRecords={companyAttendanceRecords}
                 onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
                 onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
                 onAttendanceUpdated={handleAttendanceUpdated}
@@ -827,7 +924,7 @@ export default function App() {
               />
             ) : activeTab === 'users' ? (
               <UserDirectoryView
-                students={students}
+                students={companyStudents}
                 classes={classes}
                 orgInfo={orgInfo}
                 onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
@@ -853,15 +950,15 @@ export default function App() {
             ) : (
               <AnalyticsView
                 classes={classes}
-                students={students}
-                attendanceRecords={attendanceRecords}
+                students={companyStudents}
+                attendanceRecords={companyAttendanceRecords}
                 orgInfo={orgInfo}
               />
             )
           ) : (
             <StudentDashboard
-              students={students}
-              attendanceRecords={attendanceRecords}
+              students={companyStudents.length > 0 ? companyStudents : students}
+              attendanceRecords={companyAttendanceRecords}
               onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
               orgInfo={orgInfo}
               selectedStudentId={selectedLoggedInStudentId}
@@ -888,7 +985,7 @@ export default function App() {
       <FaceScannerModal
         isOpen={isFaceScannerOpen}
         onClose={() => setIsFaceScannerOpen(false)}
-        students={students}
+        students={companyStudents}
         selectedClassId={selectedClassId}
         selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
         onAttendanceUpdated={handleAttendanceUpdated}
@@ -929,7 +1026,7 @@ export default function App() {
       <NotificationSmsModal
         isOpen={isSmsModalOpen}
         onClose={() => setIsSmsModalOpen(false)}
-        students={students}
+        students={companyStudents}
         orgInfo={orgInfo}
       />
 
@@ -937,7 +1034,7 @@ export default function App() {
       <SmartIdCardModal
         isOpen={isSmartIdCardOpen}
         onClose={() => setIsSmartIdCardOpen(false)}
-        students={students}
+        students={companyStudents}
         orgInfo={orgInfo}
         companyName={activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
       />

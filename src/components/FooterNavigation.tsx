@@ -46,7 +46,7 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
     return (
       <footer 
         id="bottom-footer-navigation"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/90 shadow-[0_-8px_30px_rgba(0,0,0,0.4)] transition-all"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-all"
       >
         <div className="max-w-xl sm:max-w-2xl mx-auto px-3 sm:px-6">
           <div className="grid grid-cols-5 items-center h-16 sm:h-18">
@@ -58,20 +58,20 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               title="আমার উপস্থিতি ও হাজিরা কার্ড"
               className={`group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer ${
                 activeTab === 'dashboard'
-                  ? 'text-emerald-400 font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'text-emerald-700 font-bold'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               {activeTab === 'dashboard' && (
-                <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl shadow-xs" />
+                <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xs" />
               )}
               <div className="relative z-10 flex items-center justify-center">
                 <LayoutDashboard className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                  activeTab === 'dashboard' ? 'text-emerald-400 stroke-[2.4]' : 'text-slate-400 stroke-[1.8]'
+                  activeTab === 'dashboard' ? 'text-emerald-700 stroke-[2.4]' : 'text-slate-500 stroke-[1.8]'
                 }`} />
               </div>
               <span className={`text-[11px] leading-tight mt-1 z-10 truncate ${
-                activeTab === 'dashboard' ? 'text-emerald-300 font-bold' : 'text-slate-400'
+                activeTab === 'dashboard' ? 'text-emerald-800 font-bold' : 'text-slate-500'
               }`}>
                 আমার হাজিরা
               </span>
@@ -82,12 +82,12 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               id="footer-nav-student-face"
               onClick={onOpenFaceScanner}
               title="AI ফেস ক্যামেরা হাজিরা"
-              className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-emerald-400"
+              className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-500 hover:text-emerald-700"
             >
               <div className="relative z-10 flex items-center justify-center">
                 <Camera className="w-5 h-5 transition-transform group-hover:scale-110 stroke-[1.8]" />
               </div>
-              <span className="text-[11px] leading-tight mt-1 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
+              <span className="text-[11px] leading-tight mt-1 z-10 truncate text-slate-500 group-hover:text-emerald-700 font-medium">
                 ফেস ক্যামেরা
               </span>
             </button>
@@ -99,14 +99,14 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
                 type="button"
                 onClick={onOpenFaceScanner}
                 title="মোবাইল ফেস হাজিরা দিন"
-                className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black shadow-lg shadow-emerald-500/40 border-4 border-slate-900 transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
+                className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black shadow-lg shadow-emerald-600/30 border-4 border-white transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
               >
-                <span className="absolute -inset-1 rounded-full bg-emerald-400/30 animate-pulse" />
+                <span className="absolute -inset-1 rounded-full bg-emerald-500/20 animate-pulse" />
                 <div className="relative z-10 flex items-center justify-center">
-                  <Camera className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-slate-950" />
+                  <Camera className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-white" />
                 </div>
               </button>
-              <span className="absolute -bottom-4 text-[10px] font-black text-emerald-400 tracking-tight whitespace-nowrap">
+              <span className="absolute -bottom-4 text-[10px] font-black text-emerald-700 tracking-tight whitespace-nowrap">
                 হাজিরা দিন
               </span>
             </div>
@@ -116,12 +116,12 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               id="footer-nav-student-idcard"
               onClick={onOpenSmartIdCard}
               title="আমার ডিজিটাল আইডি কার্ড"
-              className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-emerald-400"
+              className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-500 hover:text-emerald-700"
             >
               <div className="relative z-10 flex items-center justify-center">
                 <QrCode className="w-5 h-5 transition-transform group-hover:scale-110 stroke-[1.8]" />
               </div>
-              <span className="text-[11px] leading-tight mt-1 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
+              <span className="text-[11px] leading-tight mt-1 z-10 truncate text-slate-500 group-hover:text-emerald-700 font-medium">
                 আইডি কার্ড
               </span>
             </button>
@@ -132,14 +132,14 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               type="button"
               onClick={onOpenNavMenu}
               title="কর্মী মেনু ও অপশন"
-              className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-slate-200"
+              className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-500 hover:text-slate-900"
             >
               <div className="relative z-10 flex items-center justify-center">
-                <div className="p-1 rounded-full group-hover:bg-emerald-500/20 transition">
-                  <Menu className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-400 group-hover:text-emerald-400 stroke-[1.8]" />
+                <div className="p-1 rounded-full group-hover:bg-slate-100 transition">
+                  <Menu className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-500 group-hover:text-emerald-700 stroke-[1.8]" />
                 </div>
               </div>
-              <span className="text-[11px] leading-tight mt-0.5 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
+              <span className="text-[11px] leading-tight mt-0.5 z-10 truncate text-slate-500 group-hover:text-emerald-700 font-medium">
                 মেনু
               </span>
             </button>
@@ -153,7 +153,7 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
   return (
     <footer 
       id="bottom-footer-navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/90 shadow-[0_-8px_30px_rgba(0,0,0,0.4)] transition-all"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] transition-all"
     >
       <div className="max-w-xl sm:max-w-2xl mx-auto px-3 sm:px-6">
         {/* Exactly 5 balanced Navigation Columns */}
@@ -166,20 +166,20 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             title="হাজিরা ও ড্যাশবোর্ড"
             className={`group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer ${
               activeTab === 'dashboard'
-                ? 'text-emerald-400 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-emerald-700 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             {activeTab === 'dashboard' && (
-              <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl shadow-xs" />
+              <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xs" />
             )}
             <div className="relative z-10 flex items-center justify-center">
               <LayoutDashboard className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                activeTab === 'dashboard' ? 'text-emerald-400 stroke-[2.4]' : 'text-slate-400 stroke-[1.8]'
+                activeTab === 'dashboard' ? 'text-emerald-700 stroke-[2.4]' : 'text-slate-500 stroke-[1.8]'
               }`} />
             </div>
             <span className={`text-[11px] leading-tight mt-1 z-10 truncate ${
-              activeTab === 'dashboard' ? 'text-emerald-300 font-bold' : 'text-slate-400'
+              activeTab === 'dashboard' ? 'text-emerald-800 font-bold' : 'text-slate-500'
             }`}>
               হাজিরা
             </span>
@@ -192,20 +192,20 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             title={`${terminology.memberLabel} ও বায়োমেট্রিক ডিরেক্টরি`}
             className={`group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer ${
               activeTab === 'users'
-                ? 'text-emerald-400 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-emerald-700 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             {activeTab === 'users' && (
-              <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl shadow-xs" />
+              <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xs" />
             )}
             <div className="relative z-10 flex items-center justify-center">
               <Users className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                activeTab === 'users' ? 'text-emerald-400 stroke-[2.4]' : 'text-slate-400 stroke-[1.8]'
+                activeTab === 'users' ? 'text-emerald-700 stroke-[2.4]' : 'text-slate-500 stroke-[1.8]'
               }`} />
             </div>
             <span className={`text-[11px] leading-tight mt-1 z-10 truncate ${
-              activeTab === 'users' ? 'text-emerald-300 font-bold' : 'text-slate-400'
+              activeTab === 'users' ? 'text-emerald-800 font-bold' : 'text-slate-500'
             }`}>
               {terminology.memberLabel}
             </span>
@@ -218,16 +218,16 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               type="button"
               onClick={onOpenFaceScanner}
               title="মোবাইল ক্যামেরা দিয়ে লাইভ ফেস হাজিরা গ্রহণ"
-              className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black shadow-lg shadow-emerald-500/40 border-4 border-slate-900 transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
+              className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black shadow-lg shadow-emerald-600/30 border-4 border-white transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
             >
               {/* Pulsing ring */}
-              <span className="absolute -inset-1 rounded-full bg-emerald-400/30 animate-pulse" />
+              <span className="absolute -inset-1 rounded-full bg-emerald-500/20 animate-pulse" />
               
               <div className="relative z-10 flex items-center justify-center">
-                <Camera className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-slate-950" />
+                <Camera className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.6] text-white" />
               </div>
             </button>
-            <span className="absolute -bottom-4 text-[10px] font-black text-emerald-400 tracking-tight whitespace-nowrap">
+            <span className="absolute -bottom-4 text-[10px] font-black text-emerald-700 tracking-tight whitespace-nowrap">
               ফেস স্ক্যান
             </span>
           </div>
@@ -239,20 +239,20 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             title="শিফট তৈরি ও কাজের সময় সেটিংস"
             className={`group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer ${
               activeTab === 'schedule'
-                ? 'text-emerald-400 font-bold'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'text-emerald-700 font-bold'
+                : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             {activeTab === 'schedule' && (
-              <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl shadow-xs" />
+              <span className="absolute inset-x-2 inset-y-0.5 bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xs" />
             )}
             <div className="relative z-10 flex items-center justify-center">
               <Clock className={`w-5 h-5 transition-transform group-hover:scale-110 ${
-                activeTab === 'schedule' ? 'text-emerald-400 stroke-[2.4]' : 'text-slate-400 stroke-[1.8]'
+                activeTab === 'schedule' ? 'text-emerald-700 stroke-[2.4]' : 'text-slate-500 stroke-[1.8]'
               }`} />
             </div>
             <span className={`text-[11px] leading-tight mt-1 z-10 truncate ${
-              activeTab === 'schedule' ? 'text-emerald-300 font-bold' : 'text-slate-400'
+              activeTab === 'schedule' ? 'text-emerald-800 font-bold' : 'text-slate-500'
             }`}>
               শিফট
             </span>
@@ -264,14 +264,14 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             type="button"
             onClick={onOpenNavMenu}
             title="মেনু ও অন্যান্য টুলস"
-            className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-400 hover:text-slate-200"
+            className="group relative flex flex-col items-center justify-center py-1 rounded-2xl transition-all cursor-pointer text-slate-500 hover:text-slate-900"
           >
             <div className="relative z-10 flex items-center justify-center">
-              <div className="p-1 rounded-full group-hover:bg-emerald-500/20 transition">
-                <Menu className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-400 group-hover:text-emerald-400 stroke-[1.8]" />
+              <div className="p-1 rounded-full group-hover:bg-slate-100 transition">
+                <Menu className="w-5 h-5 transition-transform group-hover:scale-110 text-slate-500 group-hover:text-emerald-700 stroke-[1.8]" />
               </div>
             </div>
-            <span className="text-[11px] leading-tight mt-0.5 z-10 truncate text-slate-400 group-hover:text-emerald-300 font-medium">
+            <span className="text-[11px] leading-tight mt-0.5 z-10 truncate text-slate-500 group-hover:text-emerald-700 font-medium">
               মেনু
             </span>
           </button>

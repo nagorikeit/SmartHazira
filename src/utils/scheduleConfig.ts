@@ -219,13 +219,15 @@ export const calculateDistanceMeters = (
 export const checkGeofenceStatus = (
   userLat: number,
   userLng: number,
-  geofence: GeofenceSettings
-): { isWithin: boolean; distanceMeters: number; message: string } => {
+  geofence: GeofenceSettings,
+  userWifiSSID?: string
+): { isWithin: boolean; distanceMeters: number; message: string; wifiValid?: boolean } => {
   if (!geofence.enforceGeofence) {
     return {
       isWithin: true,
       distanceMeters: 0,
-      message: 'জিওফেন্স বাধ্যবাধকতা বন্ধ রয়েছে (Remote Attendance Allowed)'
+      message: 'ম্যানেজমেন্ট এরিয়া বাধ্যবাধকতা বন্ধ রয়েছে (Remote Attendance Allowed)',
+      wifiValid: true
     };
   }
 
@@ -236,12 +238,32 @@ export const checkGeofenceStatus = (
     geofence.longitude
   );
 
-  const isWithin = distance <= geofence.radiusMeters;
-  const message = isWithin
-    ? `অনুমোদিত জোনের মধ্যে অবস্থান করছেন (দূরত্ব: ${distance} মিটার / পরিধি: ${geofence.radiusMeters} মি.)`
-    : `সতর্কতা: অফিসের অনুমোদিত সীমার বাইরে (দূরত্ব: ${distance} মি., সর্বোচ্চ অনুমোদিত: ${geofence.radiusMeters} মি.)`;
+  const isWithinGps = distance <= geofence.radiusMeters;
+  
+  // Wi-Fi validation if specified or required
+  const allowedWifis = [
+    geofence.wifiSSID,
+    geofence.wifiSsid,
+    ...(geofence.wifiNetworks || [])
+  ].filter(Boolean) as string[];
 
-  return { isWithin, distanceMeters: distance, message };
+  let wifiValid = true;
+  if (geofence.requireWifi && allowedWifis.length > 0 && userWifiSSID) {
+    wifiValid = allowedWifis.some(w => w.toLowerCase() === userWifiSSID.toLowerCase());
+  }
+
+  const isWithin = isWithinGps && wifiValid;
+
+  let message = '';
+  if (!isWithinGps) {
+    message = `সতর্কতা: অফিসের অনুমোদিত সীমার বাইরে (দূরত্ব: ${distance} মি., সর্বোচ্চ অনুমোদিত: ${geofence.radiusMeters} মি.)`;
+  } else if (!wifiValid) {
+    message = `সতর্কতা: অনুমোদিত অফিস Wi-Fi-তে কানেক্টেড নন (প্রয়োজনীয়: ${allowedWifis.join(', ')})`;
+  } else {
+    message = `অনুমোদিত ম্যানেজমেন্ট এরিয়া ও Wi-Fi রেঞ্জে অবস্থান করছেন (দূরত্ব: ${distance} মি.)`;
+  }
+
+  return { isWithin, distanceMeters: distance, message, wifiValid };
 };
 
 /**

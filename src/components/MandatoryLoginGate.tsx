@@ -249,57 +249,57 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-6 selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between p-4 sm:p-6 selection:bg-emerald-500 selection:text-white">
       
       {/* Top Header / Brand */}
       <header className="max-w-md w-full mx-auto pt-4 sm:pt-6 text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 p-1 shadow-xl shadow-emerald-500/20">
-          <div className="w-full h-full bg-slate-950 rounded-[20px] flex items-center justify-center">
-            <Camera className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-400 stroke-[2.2]" />
+        <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 p-1 shadow-lg shadow-emerald-500/20">
+          <div className="w-full h-full bg-white rounded-[20px] flex items-center justify-center">
+            <Camera className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-600 stroke-[2.2]" />
           </div>
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center justify-center gap-2">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 flex items-center justify-center gap-2">
           <span>স্মার্ট হাজিরা</span>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
             মোবাইল AI
           </span>
         </h1>
-        <p className="text-xs text-slate-400 max-w-xs mx-auto">
+        <p className="text-xs text-slate-600 max-w-xs mx-auto font-medium">
           স্মার্টফোন ক্যামেরা দিয়ে দ্রুত ও নির্ভরযোগ্য ফেস হাজিরা সিস্টেম
         </p>
       </header>
 
       {/* Main Login Card */}
-      <main className="max-w-md w-full mx-auto my-6 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-6">
+      <main className="max-w-md w-full mx-auto my-6 bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-7 shadow-xl space-y-6">
         
         {/* PUBLIC PORTAL BUTTON (Top Highlight for Tablet/Mobile Kiosk) */}
         {onOpenPublicPortal && (
           <button
             type="button"
             onClick={onOpenPublicPortal}
-            className="w-full p-3.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-500/25 transition active:scale-95 cursor-pointer"
+            className="w-full p-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl flex items-center justify-between shadow-md shadow-emerald-600/20 transition active:scale-95 cursor-pointer"
           >
             <div className="flex items-center space-x-2.5">
-              <span className="p-2 bg-slate-950/20 rounded-xl">
-                <Camera className="w-5 h-5 stroke-[2.5]" />
+              <span className="p-2 bg-white/20 rounded-xl">
+                <Camera className="w-5 h-5 stroke-[2.5] text-white" />
               </span>
               <div className="text-left">
-                <p className="text-xs font-black leading-tight">পাবলিক ফেস হাজিরা পোর্টাল</p>
-                <p className="text-[10px] text-slate-900/80 font-medium">ক্যামেরা অন করে সরাসরি হাজিরা দিন</p>
+                <p className="text-xs font-black leading-tight text-white">পাবলিক ফেস হাজিরা পোর্টাল</p>
+                <p className="text-[10px] text-emerald-100 font-medium">ক্যামেরা অন করে সরাসরি হাজিরা দিন</p>
               </div>
             </div>
-            <ArrowRight className="w-4 h-4 stroke-[3]" />
+            <ArrowRight className="w-4 h-4 stroke-[3] text-white" />
           </button>
         )}
 
         {/* Unified Role Selector (3 Tabs: Admin, Company, User) */}
         <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">
             লগইন রোল নির্বাচন করুন
           </p>
 
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/80 rounded-2xl border border-slate-800 text-xs font-bold">
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
             
             {/* 1. Super Admin */}
             <button
@@ -310,8 +310,8 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               }}
               className={`py-2 px-2 rounded-xl transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
                 selectedRoleType === 'super_admin'
-                  ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-600 text-white font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
               <Shield className="w-4 h-4" />
@@ -327,8 +327,8 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               }}
               className={`py-2 px-2 rounded-xl transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
                 selectedRoleType === 'company'
-                  ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-600 text-white font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
               <Building2 className="w-4 h-4" />
@@ -344,8 +344,8 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               }}
               className={`py-2 px-2 rounded-xl transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
                 selectedRoleType === 'user'
-                  ? 'bg-emerald-500 text-slate-950 font-black shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-emerald-600 text-white font-black shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
               <Users className="w-4 h-4" />
@@ -357,8 +357,8 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
 
         {/* Error Notification */}
         {errorMessage && (
-          <div className="p-3 bg-rose-500/15 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-bold flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs font-bold flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -366,19 +366,19 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
         {/* 1. SUPER ADMIN FORM */}
         {selectedRoleType === 'super_admin' && (
           <form onSubmit={handleSuperAdminLogin} className="space-y-4">
-            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800 text-xs text-slate-300 space-y-1">
-              <p className="font-bold text-white flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1">
+              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 <span>সুপার এডমিন কন্ট্রোল</span>
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-600">
                 সকল নিবন্ধিত কোম্পানি পরিচালনা, মনিটরিং ও কেন্দ্রীয় নিয়ন্ত্রণ এক্সেস।
               </p>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>এডমিন প্যানেলে প্রবেশ করুন</span>
@@ -390,13 +390,13 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
         {selectedRoleType === 'company' && (
           <form onSubmit={handleCompanyLogin} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+              <label className="block text-[11px] font-bold text-slate-800 mb-1">
                 আপনার কোম্পানি নির্বাচন করুন
               </label>
               <select
                 value={selectedCompanyId}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-emerald-500 font-medium cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-medium cursor-pointer"
               >
                 {companies.map(c => (
                   <option key={c.id} value={c.id}>
@@ -407,7 +407,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+              <label className="block text-[11px] font-bold text-slate-800 mb-1">
                 কোম্পানি কোড (ঐচ্ছিক)
               </label>
               <input
@@ -415,13 +415,13 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                 value={companyCodeInput}
                 onChange={(e) => setCompanyCodeInput(e.target.value)}
                 placeholder="যেমন: SCO-2026 বা ফোন নম্বর"
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-emerald-500 font-mono"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>কোম্পানি ড্যাশবোর্ডে প্রবেশ করুন</span>
@@ -432,7 +432,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               <button
                 type="button"
                 onClick={() => setIsRegisterModalOpen(true)}
-                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                className="text-xs text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>নতুন কোম্পানি নিবন্ধন করুন</span>
@@ -445,7 +445,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
         {selectedRoleType === 'user' && (
           <form onSubmit={handleUserLogin} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+              <label className="block text-[11px] font-bold text-slate-800 mb-1">
                 কর্মীর আইডি বা মোবাইল নম্বর *
               </label>
               <input
@@ -453,17 +453,17 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                 value={userRollOrPhone}
                 onChange={(e) => setUserRollOrPhone(e.target.value)}
                 placeholder="যেমন: EMP-101 বা 01711223344"
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white focus:outline-emerald-500 font-mono font-bold"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono font-bold"
               />
             </div>
 
-            <div className="p-3 bg-slate-950/60 rounded-2xl border border-slate-800 text-[11px] text-slate-400">
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600">
               💡 ইউজার হিসেবে লগইন করে আপনি নিজের আজকের উপস্থিতি দেখতে পারবেন এবং ক্যামেরা দিয়ে ফেস হাজিরা দিতে পারবেন।
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>কর্মী ড্যাশবোর্ডে প্রবেশ করুন</span>
@@ -474,9 +474,9 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
         {/* Google Sign-in Divider */}
         <div className="relative flex items-center justify-center pt-2">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-800" />
+            <div className="w-full border-t border-slate-200" />
           </div>
-          <span className="relative bg-slate-900 px-3 text-[10px] uppercase font-bold text-slate-500">
+          <span className="relative bg-white px-3 text-[10px] uppercase font-bold text-slate-400">
             অথবা
           </span>
         </div>
@@ -486,10 +486,10 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
           type="button"
           disabled={isGoogleLoading}
           onClick={handleGoogleClick}
-          className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-2xl border border-slate-800 text-xs font-bold flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-60"
+          className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-800 rounded-2xl border border-slate-300 text-xs font-bold flex items-center justify-center space-x-2 transition cursor-pointer shadow-xs disabled:opacity-60"
         >
           {isGoogleLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
           ) : (
             <svg className="w-4 h-4" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -505,22 +505,22 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
 
       {/* Footer info */}
       <footer className="max-w-md w-full mx-auto text-center text-[11px] text-slate-500 pb-2">
-        <p>ক্যাপাসিটর মোবাইল অ্যাপ উপযোগী • ক্যামেরা ফেস হাজিরা সিস্টেম</p>
+        <p>মোবাইল অপ্টিমাইজড • ক্যামেরা ফেস হাজিরা সিস্টেম</p>
       </footer>
 
       {/* MODAL: Register New Company */}
       {isRegisterModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-emerald-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-emerald-600" />
                 <span>নতুন কোম্পানি নিবন্ধন</span>
               </h3>
               <button
                 type="button"
                 onClick={() => setIsRegisterModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-slate-700"
               >
                 ✕
               </button>
@@ -528,7 +528,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
 
             <form onSubmit={handleRegisterCompanySubmit} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
                   কোম্পানির নাম (বাংলায়) *
                 </label>
                 <input
@@ -537,12 +537,12 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                   value={newCompNameBangla}
                   onChange={(e) => setNewCompNameBangla(e.target.value)}
                   placeholder="যেমন: এসিআই লজিস্টিকস লিঃ"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-emerald-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
                   কোম্পানি কোড *
                 </label>
                 <input
@@ -551,18 +551,18 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                   value={newCompCode}
                   onChange={(e) => setNewCompCode(e.target.value)}
                   placeholder="যেমন: ACI-2026"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-emerald-500 font-mono"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
                   ক্যাটাগরি
                 </label>
                 <select
                   value={newCompCategory}
                   onChange={(e) => setNewCompCategory(e.target.value as OrgCategoryKey)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-emerald-500 cursor-pointer"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600 cursor-pointer"
                 >
                   <option value="corporate">কর্পোরেট অফিস (Corporate)</option>
                   <option value="factory">কারখানা ও ফ্যাক্টরি (Factory)</option>
@@ -574,7 +574,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
                     মোবাইল নম্বর
                   </label>
                   <input
@@ -582,11 +582,11 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                     value={newCompPhone}
                     onChange={(e) => setNewCompPhone(e.target.value)}
                     placeholder="01711..."
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-emerald-500 font-mono"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
                     এডমিন নাম
                   </label>
                   <input
@@ -594,7 +594,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                     value={newCompAdmin}
                     onChange={(e) => setNewCompAdmin(e.target.value)}
                     placeholder="ম্যানেজার / এডমিন"
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-emerald-500"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600"
                   />
                 </div>
               </div>
@@ -603,13 +603,13 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsRegisterModalOpen(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   বাতিল
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black cursor-pointer shadow-md"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black cursor-pointer shadow-md"
                 >
                   নিবন্ধন করুন ও প্রবেশ করুন
                 </button>

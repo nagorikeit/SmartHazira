@@ -133,10 +133,13 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   }, []);
 
   const currentClass = classes.find(c => c.id === selectedClassId) || classes[0];
-  const classStudents = students.filter(s => s.classId === selectedClassId);
+  const classStudents = (!selectedClassId || selectedClassId === 'all' || !students.some(s => s.classId === selectedClassId))
+    ? students
+    : students.filter(s => s.classId === selectedClassId);
 
   const scheduleSettings = getStoredScheduleSettings();
   const currentActiveShift = getCurrentActiveShift(scheduleSettings, new Date());
+  const [selectedShiftFilter, setSelectedShiftFilter] = useState<string>('All');
 
   const getShiftBadgeStyle = (code?: string, name?: string) => {
     const text = ((code || '') + ' ' + (name || '')).toLowerCase();
@@ -195,8 +198,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     return (a.student.roll || '').localeCompare(b.student.roll || '', undefined, { numeric: true });
   });
 
-  // Filter rows with resilient name check
-  const filteredRows = studentRows.filter(({ student, status }) => {
+  // Filter rows with resilient name and shift check
+  const filteredRows = studentRows.filter(({ student, record, status }) => {
     const displayName = student.nameBangla || student.name || student.nameEnglish || student.roll || '';
     const matchesSearch =
       displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -204,7 +207,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       (student.nameBangla || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (student.roll || '').includes(searchQuery);
     const matchesStatus = statusFilter === 'All' || status === statusFilter;
-    return matchesSearch && matchesStatus;
+
+    const studentShift = (student as any).shiftId || (student as any).assignedShiftId;
+    const matchesShift = selectedShiftFilter === 'All'
+      ? true
+      : selectedShiftFilter === 'active'
+        ? (record 
+            ? (record.shiftId === currentActiveShift.id || record.shiftCode === currentActiveShift.code) 
+            : (studentShift ? studentShift === currentActiveShift.id : true))
+        : (record 
+            ? (record.shiftId === selectedShiftFilter || record.shiftCode === selectedShiftFilter) 
+            : (studentShift ? studentShift === selectedShiftFilter : true));
+
+    return matchesSearch && matchesStatus && matchesShift;
   });
 
   // Quick manual status change
@@ -331,43 +346,83 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       </div>
 
       {/* Unified Table Section */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         
         {/* Filter and Search Sub-bar */}
-        <div className="p-3 sm:p-3.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        <div className="p-3 sm:p-3.5 border-b border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           
-          {/* Left: Date Picker + Search */}
-          <div className="flex items-center gap-2 flex-1 max-w-lg">
-            {/* Date Picker */}
-            <div className="flex items-center space-x-1.5 bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs shadow-2xs shrink-0">
-              <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          {/* Left: Date Picker (Real-time automatic default) + Shift Filter + Search */}
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            {/* 1. Date Picker (Real-time default) */}
+            <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs shadow-2xs shrink-0" title="তারিখ অনুযায়ী ফিল্টার (ডিফল্ট: আজকের রিয়েল-টাইম)">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <input
                 type="date"
                 value={selectedDate}
                 onChange={e => setSelectedDate(e.target.value)}
-                className="font-bold text-slate-900 dark:text-white focus:outline-none bg-transparent cursor-pointer text-xs"
+                className="font-bold text-slate-900 focus:outline-none bg-transparent cursor-pointer text-xs"
+                title="তারিখ পরিবর্তন করতে ক্লিক করুন"
               />
+              {selectedDate === new Date().toISOString().split('T')[0] && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <span>রিয়েল-টাইম</span>
+                </span>
+              )}
             </div>
 
-            {/* Search Box */}
-            <div className="relative flex-1 min-w-[160px]">
+            {/* Jump to Today button if not today */}
+            {selectedDate !== new Date().toISOString().split('T')[0] && (
+              <button
+                type="button"
+                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl transition cursor-pointer shrink-0 shadow-2xs"
+                title="আজকের রিয়েল-টাইম তারিখে ফিরে যান"
+              >
+                আজকে (রিয়েল-টাইম)
+              </button>
+            )}
+
+            {/* 2. Shift Filter Dropdown */}
+            <div className="flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs shadow-2xs shrink-0" title="শিফট অনুযায়ী ফিল্টার করুন">
+              <Clock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <select
+                value={selectedShiftFilter}
+                onChange={e => setSelectedShiftFilter(e.target.value)}
+                className="font-bold text-slate-900 bg-transparent focus:outline-none cursor-pointer text-xs pr-1"
+                title="শিফট অনুযায়ী ফিল্টার করুন"
+              >
+                <option value="All">সকল শিফট (All)</option>
+                <option value="active">
+                  চলমান শিফট: {currentActiveShift.nameBangla}
+                </option>
+                {scheduleSettings.shifts.map(shift => (
+                  <option key={shift.id} value={shift.id}>
+                    {shift.nameBangla} ({shift.startTime} - {shift.endTime})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 3. Search Box */}
+            <div className="relative flex-1 min-w-[140px]">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
               <input
                 type="text"
                 placeholder={`${terminology.memberLabel}-এর নাম বা আইডি খুঁজুন...`}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-2.5 py-1.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-500"
+                className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 text-slate-900 placeholder:text-slate-400 border border-slate-300 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
 
           {/* Right: Status Filter Tabs */}
-          <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium shrink-0 overflow-x-auto">
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-medium shrink-0 overflow-x-auto border border-slate-200">
             <button
               onClick={() => setStatusFilter('All')}
               className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'All' ? 'bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                statusFilter === 'All' ? 'bg-white font-bold text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               সকল ({studentRows.length})
@@ -375,7 +430,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <button
               onClick={() => setStatusFilter('Present')}
               className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'Present' ? 'bg-emerald-600 font-bold text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-emerald-600'
+                statusFilter === 'Present' ? 'bg-emerald-600 font-bold text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
               }`}
             >
               উপস্থিত ({studentRows.filter(r => r.status === 'Present').length})
@@ -383,7 +438,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <button
               onClick={() => setStatusFilter('Late')}
               className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'Late' ? 'bg-amber-500 font-bold text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-amber-600'
+                statusFilter === 'Late' ? 'bg-amber-500 font-bold text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
               }`}
             >
               বিলম্ব ({studentRows.filter(r => r.status === 'Late').length})
@@ -391,7 +446,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <button
               onClick={() => setStatusFilter('Absent')}
               className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'Absent' ? 'bg-rose-600 font-bold text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:text-rose-600'
+                statusFilter === 'Absent' ? 'bg-rose-600 font-bold text-white shadow-2xs' : 'text-slate-600 hover:text-rose-700'
               }`}
             >
               অনুপস্থিত ({studentRows.filter(r => r.status === 'Absent').length})
@@ -404,7 +459,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         <div className="overflow-x-auto w-full">
           <table className="w-full min-w-[880px] text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-100/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold">
+              <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
                 <th className="p-3 pl-4 whitespace-nowrap min-w-[220px]">প্রোফাইল ফটো ও নাম</th>
                 <th className="p-3 whitespace-nowrap min-w-[110px]">পদবী</th>
                 <th className="p-3 whitespace-nowrap min-w-[140px]">শিফট</th>
@@ -414,15 +469,15 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <th className="p-3 text-right pr-4 whitespace-nowrap w-24">এডিট</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-100">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-500 bg-white">
                     <div className="flex flex-col items-center justify-center space-y-2.5 max-w-sm mx-auto">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
                         <UserPlus className="w-5 h-5" />
                       </div>
-                      <p className="font-bold text-slate-700 dark:text-slate-200">কোনো {terminology.memberLabel} পাওয়া যায়নি</p>
+                      <p className="font-bold text-slate-800">কোনো {terminology.memberLabel} পাওয়া যায়নি</p>
                       <button
                         onClick={onOpenRegisterModal}
                         className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-xs flex items-center space-x-1.5 cursor-pointer"
