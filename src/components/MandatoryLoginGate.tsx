@@ -67,8 +67,9 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   const [adminCompanyPassword, setAdminCompanyPassword] = useState<string>('');
   const [showAdminCompanyPassword, setShowAdminCompanyPassword] = useState<boolean>(false);
 
-  // User / Employee Credentials
-  const [userRollOrPhone, setUserRollOrPhone] = useState<string>('');
+  // User / Employee Credentials (Require BOTH Employee ID AND Mobile Number for security)
+  const [userRollInput, setUserRollInput] = useState<string>('');
+  const [userPhoneInput, setUserPhoneInput] = useState<string>('');
 
   // New Company Registration Form
   const [newCompNameBangla, setNewCompNameBangla] = useState('');
@@ -166,18 +167,23 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     if (e) e.preventDefault();
     setErrorMessage('');
 
-    if (!userRollOrPhone.trim()) {
+    const trimmedRoll = userRollInput.trim().toLowerCase();
+    const trimmedPhone = userPhoneInput.trim().toLowerCase();
+    const cleanDigitsPhone = trimmedPhone.replace(/\D/g, '');
+
+    if (!trimmedRoll && !trimmedPhone && students.length > 0) {
+      // If both inputs are empty and demo students exist
       const defaultStudent = students[0];
       if (defaultStudent) {
         loginAsStudent(defaultStudent);
         return;
       }
-      setErrorMessage('অনুগ্রহ করে আপনার আইডি বা মোবাইল নম্বর লিখুন।');
-      return;
     }
 
-    const trimmed = userRollOrPhone.trim().toLowerCase();
-    const cleanDigits = trimmed.replace(/\D/g, '');
+    if (!trimmedRoll || !trimmedPhone) {
+      setErrorMessage('নিরাপত্তার স্বার্থে কর্মী আইডি এবং মোবাইল নম্বর দুটি ঘরেই সঠিক তথ্য প্রদান করুন।');
+      return;
+    }
 
     const matched = students.find(
       s => {
@@ -187,21 +193,21 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
         const rawPhone1 = (s.guardianPhone || '').trim().toLowerCase();
         const rawPhone2 = (s.parentPhone || '').trim().toLowerCase();
 
-        return (
-          sRoll === trimmed ||
-          (cleanDigits.length >= 6 && (sPhone1.endsWith(cleanDigits) || cleanDigits.endsWith(sPhone1))) ||
-          (cleanDigits.length >= 6 && (sPhone2.endsWith(cleanDigits) || cleanDigits.endsWith(sPhone2))) ||
-          rawPhone1 === trimmed ||
-          rawPhone2 === trimmed ||
-          s.nameBangla.toLowerCase().includes(trimmed)
-        );
+        const isRollMatch = sRoll === trimmedRoll;
+        const isPhoneMatch =
+          rawPhone1 === trimmedPhone ||
+          rawPhone2 === trimmedPhone ||
+          (cleanDigitsPhone.length >= 6 && (sPhone1.endsWith(cleanDigitsPhone) || cleanDigitsPhone.endsWith(sPhone1))) ||
+          (cleanDigitsPhone.length >= 6 && (sPhone2.endsWith(cleanDigitsPhone) || cleanDigitsPhone.endsWith(sPhone2)));
+
+        return isRollMatch && isPhoneMatch;
       }
     );
 
     if (matched) {
       loginAsStudent(matched);
     } else {
-      setErrorMessage(`"${userRollOrPhone}" আইডি বা মোবাইল নম্বর দিয়ে কোনো কর্মী পাওয়া যায়নি। অনুগ্রহ করে সঠিক আইডি বা মোবাইল নম্বর প্রদান করুন।`);
+      setErrorMessage(`প্রদত্ত কর্মী আইডি (${userRollInput}) এবং মোবাইল নম্বরের (${userPhoneInput}) সাথে নিবন্ধিত তথ্যের মিল পাওয়া যায়নি।`);
     }
   };
 
@@ -471,19 +477,32 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
           <form onSubmit={handleUserLogin} className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                ইউজার আইডি বা মোবাইল নম্বর *
+                কর্মী আইডি (Employee ID) *
               </label>
               <input
                 type="text"
-                value={userRollOrPhone}
-                onChange={(e) => setUserRollOrPhone(e.target.value)}
-                placeholder="যেমন: EMP-101 বা 01711223344"
+                value={userRollInput}
+                onChange={(e) => setUserRollInput(e.target.value)}
+                placeholder="যেমন: EMP-101 বা 101"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                মোবাইল নম্বর (Registered Phone) *
+              </label>
+              <input
+                type="tel"
+                value={userPhoneInput}
+                onChange={(e) => setUserPhoneInput(e.target.value)}
+                placeholder="যেমন: 01711223344"
                 className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono font-bold"
               />
             </div>
 
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600">
-              💡 ইউজার হিসেবে মোবাইল নম্বর ও আইডি দিয়ে প্রবেশ করে আপনি নিজস্ব উপস্থিতি দেখতে পারবেন এবং ফেস হাজিরা দিতে পারবেন।
+              🔒 নিরাপত্তার জন্য কর্মী আইডি এবং মোবাইল নম্বর দুটি তথ্যই যাচাই করে নিজস্ব ড্যাশবোর্ডে প্রবেশাধিকার দেওয়া হবে।
             </div>
 
             <button
