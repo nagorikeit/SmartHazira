@@ -21,13 +21,16 @@ interface HeaderProps {
   currentUser?: User | null;
   onGoogleSignIn?: () => void;
   onGoogleSignOut?: () => void;
+  companyName?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  currentRole,
   orgInfo,
   onOpenNavigationMenu,
   onGoogleSignOut,
   isFirebaseConnected = true,
+  companyName,
 }) => {
 
   const { terminology } = orgInfo;
@@ -49,10 +52,12 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center space-x-2">
                 <h1 className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 flex items-center gap-1.5">
                   <span className="text-emerald-700">
-                    স্মার্ট হাজিরা AI
+                    {currentRole === 'super_admin' 
+                      ? 'সুপার এডমিন কন্ট্রোল' 
+                      : (companyName || 'স্মার্ট হাজিরা AI')}
                   </span>
                   <span className="text-slate-500 text-xs font-normal hidden md:inline">
-                    | {terminology.orgCategoryName}
+                    | {currentRole === 'super_admin' ? 'সেন্ট্রাল সিস্টেম' : terminology.orgCategoryName}
                   </span>
                 </h1>
               </div>

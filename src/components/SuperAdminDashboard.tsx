@@ -23,7 +23,10 @@ import {
   Activity, 
   Database,
   Filter,
-  Check
+  Check,
+  Eye,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 
 interface SuperAdminDashboardProps {
@@ -67,6 +70,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newConfirmPassword, setNewConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   // Add Member Modal State
   const [selectedCompanyForMember, setSelectedCompanyForMember] = useState<RegisteredCompany | null>(null);
@@ -87,7 +94,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   const handleRegisterCompanySubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError('');
     if (!newCompanyNameBangla || !newCode) return;
+
+    if (newPassword && newPassword.length < 4) {
+      setPasswordError('পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।');
+      return;
+    }
+
+    if (newPassword && newPassword !== newConfirmPassword) {
+      setPasswordError('পাসওয়ার্ড এবং নিশ্চিতকরণ পাসওয়ার্ড মিলছে না!');
+      return;
+    }
 
     const companyObj: RegisteredCompany = {
       id: `cmp-${Date.now()}`,
@@ -101,7 +119,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       totalMembers: 0,
       status: 'Active',
       registeredDate: new Date().toISOString().split('T')[0],
-      adminName: newAdminName || 'প্রধান এডমিন'
+      adminName: newAdminName || 'প্রধান এডমিন',
+      password: newPassword.trim() || '123456'
     };
 
     onAddCompany(companyObj);
@@ -115,6 +134,9 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     setNewPhone('');
     setNewAddress('');
     setNewAdminName('');
+    setNewPassword('');
+    setNewConfirmPassword('');
+    setPasswordError('');
   };
 
   const handleAddMemberSubmit = (e: React.FormEvent) => {
@@ -498,6 +520,49 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-medium"
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    এডমিন পাসওয়ার্ড সেটআপ
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="ডিফল্ট: 123456"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full p-2.5 pr-8 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(prev => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    পাসওয়ার্ড নিশ্চিত করুন
+                  </label>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="একই পাসওয়ার্ড দিন"
+                    value={newConfirmPassword}
+                    onChange={(e) => setNewConfirmPassword(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border rounded-xl font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              {passwordError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold">
+                  {passwordError}
+                </div>
+              )}
 
               <button
                 type="submit"

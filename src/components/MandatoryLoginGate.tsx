@@ -21,7 +21,10 @@ import {
   Clock,
   Smartphone,
   ExternalLink,
-  Plus
+  Plus,
+  Eye,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 import { RegisteredCompany, Student, UserRole } from '../types';
 import { OrgCategoryKey, ORG_CATEGORIES } from '../utils/organizationConfig';
@@ -66,6 +69,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>(companies[0]?.id || '');
   const [companyCodeInput, setCompanyCodeInput] = useState<string>('');
   const [companyPassword, setCompanyPassword] = useState<string>('');
+  const [showCompanyPassword, setShowCompanyPassword] = useState<boolean>(false);
 
   // User / Employee Credentials
   const [userRollOrPhone, setUserRollOrPhone] = useState<string>('');
@@ -77,6 +81,9 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   const [newCompPhone, setNewCompPhone] = useState('');
   const [newCompEmail, setNewCompEmail] = useState('');
   const [newCompAdmin, setNewCompAdmin] = useState('');
+  const [newCompPassword, setNewCompPassword] = useState<string>('');
+  const [newCompConfirmPassword, setNewCompConfirmPassword] = useState<string>('');
+  const [showNewCompPassword, setShowNewCompPassword] = useState<boolean>(false);
 
   // 1. Super Admin Login
   const handleSuperAdminLogin = (e?: React.FormEvent) => {
@@ -113,6 +120,18 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     if (!matchedCompany) {
       setErrorMessage('কোন কোম্পানি পাওয়া যায়নি। অনুগ্রহ করে প্রথমে একটি কোম্পানি নিবন্ধন করুন।');
       return;
+    }
+
+    // Verify company password if set
+    if (matchedCompany.password && matchedCompany.password.trim()) {
+      if (!companyPassword.trim()) {
+        setErrorMessage(`"${matchedCompany.nameBangla}" কোম্পানির এডমিন পাসওয়ার্ড লিখুন।`);
+        return;
+      }
+      if (companyPassword.trim() !== matchedCompany.password.trim()) {
+        setErrorMessage('ভুল পাসওয়ার্ড! আপনার কোম্পানির সঠিক এডমিন পাসওয়ার্ড প্রদান করুন।');
+        return;
+      }
     }
 
     const mockUser = {
@@ -213,8 +232,24 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   // Register New Company Submit
   const handleRegisterCompanySubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
     if (!newCompNameBangla.trim() || !newCompCode.trim()) {
       setErrorMessage('কোম্পানির নাম এবং কোড আবশ্যক।');
+      return;
+    }
+
+    if (!newCompPassword.trim()) {
+      setErrorMessage('কোম্পানি এডমিনের জন্য একটি পাসওয়ার্ড সেটআপ করা বাধ্যতামূলক।');
+      return;
+    }
+
+    if (newCompPassword.trim().length < 4) {
+      setErrorMessage('পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।');
+      return;
+    }
+
+    if (newCompPassword !== newCompConfirmPassword) {
+      setErrorMessage('পাসওয়ার্ড দুটি মিলছে না! অনুগ্রহ করে পুনরায় টাইপ করুন।');
       return;
     }
 
@@ -230,7 +265,8 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
       totalMembers: 0,
       status: 'Active',
       registeredDate: new Date().toISOString().split('T')[0],
-      adminName: newCompAdmin.trim() || 'এডমিন'
+      adminName: newCompAdmin.trim() || 'এডমিন',
+      password: newCompPassword.trim(),
     };
 
     onAddCompany(newCompany);
@@ -419,6 +455,31 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               />
             </div>
 
+            <div>
+              <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                এডমিন পাসওয়ার্ড
+              </label>
+              <div className="relative">
+                <input
+                  type={showCompanyPassword ? 'text' : 'password'}
+                  value={companyPassword}
+                  onChange={(e) => setCompanyPassword(e.target.value)}
+                  placeholder="কোম্পানি এডমিন পাসওয়ার্ড লিখুন"
+                  className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCompanyPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-1"
+                >
+                  {showCompanyPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                💡 রেজিস্ট্রেশনের সময় সেটআপ করা পাসওয়ার্ড দিন
+              </p>
+            </div>
+
             <button
               type="submit"
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
@@ -595,6 +656,58 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                     onChange={(e) => setNewCompAdmin(e.target.value)}
                     placeholder="ম্যানেজার / এডমিন"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                  কোম্পানি ইমেইল (লগইনের জন্য)
+                </label>
+                <input
+                  type="email"
+                  value={newCompEmail}
+                  onChange={(e) => setNewCompEmail(e.target.value)}
+                  placeholder="admin@company.com"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    পাসওয়ার্ড সেটআপ করুন *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewCompPassword ? 'text' : 'password'}
+                      required
+                      value={newCompPassword}
+                      onChange={(e) => setNewCompPassword(e.target.value)}
+                      placeholder="কমপক্ষে ৪ অক্ষর"
+                      className="w-full pl-3 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewCompPassword(prev => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
+                    >
+                      {showNewCompPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    পাসওয়ার্ড নিশ্চিত করুন *
+                  </label>
+                  <input
+                    type={showNewCompPassword ? 'text' : 'password'}
+                    required
+                    value={newCompConfirmPassword}
+                    onChange={(e) => setNewCompConfirmPassword(e.target.value)}
+                    placeholder="একই পাসওয়ার্ড দিন"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
                   />
                 </div>
               </div>

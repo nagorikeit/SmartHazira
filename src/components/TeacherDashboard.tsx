@@ -238,7 +238,43 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
       time: timeStr,
       status: newStatus,
       method: 'Manual',
+      shiftId: currentActiveShift?.id || 'shift-day',
+      shiftName: currentActiveShift?.nameBangla || 'সাধারণ ডে শিফট',
+      shiftCode: currentActiveShift?.code || 'DAY',
+      shiftTiming: currentActiveShift ? `${currentActiveShift.startTime} - ${currentActiveShift.endTime}` : '09:00 - 17:00',
       notes: `${terminology.adminLabel} কর্তৃক ম্যানুয়ালি হালনাগাদ করা হয়েছে (${newStatus})`,
+    });
+
+    onAttendanceUpdated(updated);
+  };
+
+  // Quick shift selection change after attendance is given
+  const handleShiftChange = (student: Student, record: AttendanceRecord | undefined, newShiftId: string) => {
+    const targetShift = (scheduleSettings.shifts || []).find(s => s.id === newShiftId) || currentActiveShift;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+    const displayName = student.nameBangla || student.name || student.nameEnglish || 'সদস্য';
+
+    const updated = saveAttendanceRecord({
+      ...(record || {}),
+      studentId: student.id,
+      studentName: displayName,
+      roll: student.roll,
+      classId: student.classId || selectedClassId,
+      className: student.className || (currentClass ? currentClass.classNameBangla : ''),
+      date: selectedDate,
+      time: record?.time || timeStr,
+      entryTime: record?.entryTime || record?.time || timeStr,
+      exitTime: record?.exitTime,
+      status: record?.status || 'Present',
+      method: record?.method || 'Manual',
+      shiftId: targetShift.id,
+      shiftName: targetShift.nameBangla,
+      shiftCode: targetShift.code,
+      shiftTiming: `${targetShift.startTime} - ${targetShift.endTime}`,
+      notes: record?.notes 
+        ? `${record.notes} (শিফট পরিবর্তন: ${targetShift.nameBangla})` 
+        : `শিফট নির্ধারণ: ${targetShift.nameBangla}`,
     });
 
     onAttendanceUpdated(updated);
@@ -455,6 +491,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
         </div>
 
+        {/* Shift Guide Note */}
+        <div className="px-4 py-2 bg-emerald-50 border-y border-emerald-100 flex items-center justify-between text-[11px] text-emerald-900 gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span><strong>হাজিরা ও শিফট নির্বাচন:</strong> প্রবেশের সময় অনুযায়ী শিফট অটোমেটিক সিলেক্ট হয়। হাজিরা সম্পন্ন হওয়ার পরও নিচের 'ডিউটি শিফট' ড্রপডাউন থেকে সরাসরি শিফট পরিবর্তন করতে পারবেন।</span>
+          </div>
+          <span className="text-emerald-700 font-bold text-[10px] bg-white px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+            বর্তমান সক্রিয় শিফট: {currentActiveShift?.nameBangla}
+          </span>
+        </div>
+
         {/* Member List Table */}
         <div className="overflow-x-auto w-full">
           <table className="w-full min-w-[880px] text-left border-collapse text-xs">
@@ -462,7 +509,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
                 <th className="p-3 pl-4 whitespace-nowrap min-w-[220px]">প্রোফাইল ফটো ও নাম</th>
                 <th className="p-3 whitespace-nowrap min-w-[110px]">পদবী</th>
-                <th className="p-3 whitespace-nowrap min-w-[140px]">শিফট</th>
+                <th className="p-3 whitespace-nowrap min-w-[180px]">ডিউটি শিফট (নির্বাচন করুন)</th>
                 <th className="p-3 whitespace-nowrap min-w-[130px]">প্রবেশ করার সময়</th>
                 <th className="p-3 whitespace-nowrap min-w-[140px]">বাহির হওয়ার সময়</th>
                 <th className="p-3 text-center whitespace-nowrap min-w-[150px]">স্ট্যাটাস</th>
@@ -544,33 +591,33 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                       </span>
                     </td>
 
-                    {/* 3. Shift (শিফট - স্ক্যান বা অটো ডিটেক্ট) */}
-                    <td className="p-3 whitespace-nowrap">
-                      {record?.shiftName ? (
-                        <div className="inline-flex flex-col">
-                          <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border shadow-2xs ${getShiftBadgeStyle(record.shiftCode, record.shiftName)}`}>
-                            {getShiftIcon(record.shiftCode, record.shiftName)}
-                            <span>{record.shiftName}</span>
+                    {/* 3. Shift (শিফট নির্বাচন ও প্রদর্শন) */}
+                    <td className="p-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex flex-col gap-1 min-w-[155px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border shadow-2xs ${getShiftBadgeStyle(record?.shiftCode || currentActiveShift?.code, record?.shiftName || currentActiveShift?.nameBangla)}`}>
+                            {getShiftIcon(record?.shiftCode || currentActiveShift?.code, record?.shiftName || currentActiveShift?.nameBangla)}
+                            <span>{record?.shiftName || currentActiveShift?.nameBangla || 'সাধারণ ডে শিফট'}</span>
                           </span>
-                          {record.shiftTiming && (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 pl-0.5">
-                              {record.shiftTiming}
-                            </span>
-                          )}
                         </div>
-                      ) : (
-                        <div className="inline-flex flex-col">
-                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 text-[11px] font-medium border border-slate-200 dark:border-slate-700">
-                            <Layers className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span>{currentActiveShift?.nameBangla || 'সাধারণ ডে শিফট'}</span>
-                          </span>
-                          {currentActiveShift && (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 pl-0.5">
-                              {currentActiveShift.startTime} - {currentActiveShift.endTime}
-                            </span>
-                          )}
-                        </div>
-                      )}
+
+                        {/* Interactive Shift Selector Dropdown */}
+                        <select
+                          value={record?.shiftId || currentActiveShift?.id || 'shift-day'}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleShiftChange(student, record, e.target.value);
+                          }}
+                          className="text-[11px] font-semibold py-1 px-2 rounded-lg bg-white border border-slate-300 text-slate-800 hover:border-emerald-500 focus:outline-emerald-600 cursor-pointer shadow-2xs w-full max-w-[170px]"
+                          title="হাজিরার পর ডিউটি শিফট পরিবর্তন বা নির্বাচন করুন"
+                        >
+                          {(scheduleSettings.shifts || []).map(shift => (
+                            <option key={shift.id} value={shift.id}>
+                              {shift.nameBangla} ({shift.startTime}-{shift.endTime})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </td>
 
                     {/* 4. Entry Time (প্রবেশ করার সময়) */}

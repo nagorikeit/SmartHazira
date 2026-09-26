@@ -15,6 +15,7 @@ export interface RegisteredCompany {
   status: 'Active' | 'Pending' | 'Suspended';
   registeredDate: string;
   adminName: string;
+  password?: string;
 }
 
 export type AttendanceStatus = 'Present' | 'Absent' | 'Late';

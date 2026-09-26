@@ -45,6 +45,7 @@ interface StudentDashboardProps {
   onAttendancePunch?: (record: AttendanceRecord) => void;
   scheduleSettings?: OrganizationScheduleSettings;
   onSignOut?: () => void;
+  companyName?: string;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -57,6 +58,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onAttendancePunch,
   scheduleSettings,
   onSignOut,
+  companyName,
 }) => {
   const { terminology } = orgInfo;
 
@@ -363,6 +365,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 {activeStudent?.className} | {terminology.contactLabel}: {activeStudent?.guardianPhone}
+              </p>
+              <p className="text-[11px] text-emerald-400 font-bold mt-0.5 flex items-center gap-1">
+                <span>🏢 {activeStudent?.companyName || companyName || 'স্মার্ট হাজিরা AI'}</span>
               </p>
             </div>
           </div>

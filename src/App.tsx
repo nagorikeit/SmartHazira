@@ -169,8 +169,11 @@ export default function App() {
       console.error('Sign Out error from Firebase:', error);
     }
     setCurrentUser(null);
+    setActiveCompany(null);
+    setSelectedLoggedInStudentId('');
     try {
       localStorage.removeItem('smart_hazira_current_user_v1');
+      localStorage.removeItem('smart_hazira_active_company_v1');
     } catch {
       // ignore
     }
@@ -189,7 +192,17 @@ export default function App() {
 
   const handleAddCompany = (newCompany: RegisteredCompany) => {
     setRegisteredCompanies(prev => [newCompany, ...prev]);
-    setActiveCompany(newCompany);
+    
+    // CRITICAL: Only set as active company if registering from public login (company onboarding)
+    // If Super Admin adds a company from SuperAdminDashboard, DO NOT switch active company globally!
+    if (currentRole !== 'super_admin') {
+      setActiveCompany(newCompany);
+      try {
+        localStorage.setItem('smart_hazira_active_company_v1', JSON.stringify(newCompany));
+      } catch {
+        // ignore
+      }
+    }
     saveCompanyToFirestore(newCompany);
 
     const newLog: AuditLogItem = {
@@ -468,8 +481,40 @@ export default function App() {
     // Existing members remain 100% intact, only terminology & labels change.
   };
 
+  // Strictly resolve the active company based on current session and role to prevent company name leakage
+  const resolvedActiveCompany = useMemo<RegisteredCompany | null>(() => {
+    // 1. If currently a student/employee, find that student's specific company
+    if (currentRole === 'student' && selectedLoggedInStudentId) {
+      const loggedStudent = students.find(s => s.id === selectedLoggedInStudentId);
+      if (loggedStudent?.companyId) {
+        const comp = registeredCompanies.find(c => c.id === loggedStudent.companyId);
+        if (comp) return comp;
+      }
+    }
+
+    // 2. If activeCompany is set in state, verify with registered companies
+    if (activeCompany) {
+      const match = registeredCompanies.find(c => c.id === activeCompany.id);
+      return match || activeCompany;
+    }
+
+    // 3. If current user is authenticated as a company admin (uid: comp-*)
+    if (currentUser?.uid && currentUser.uid.startsWith('comp-')) {
+      const compId = currentUser.uid.replace('comp-', '');
+      const match = registeredCompanies.find(c => c.id === compId);
+      if (match) return match;
+    }
+
+    // 4. If current role is super_admin, do NOT pin to any single company
+    if (currentRole === 'super_admin') {
+      return null;
+    }
+
+    return registeredCompanies[0] || null;
+  }, [activeCompany, currentRole, selectedLoggedInStudentId, students, registeredCompanies, currentUser]);
+
   // Isolate members strictly per active company (Multi-tenancy isolation - Requirement 2)
-  const currentCompanyId = activeCompany?.id;
+  const currentCompanyId = resolvedActiveCompany?.id;
 
   const companyStudents = useMemo(() => {
     // If Super Admin, show all members across companies
@@ -790,7 +835,7 @@ export default function App() {
         onAttendanceUpdated={handleAttendanceUpdated}
         soundEnabled={soundEnabled}
         orgInfo={orgInfo}
-        companyName={activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
+        companyName={resolvedActiveCompany?.nameBangla || activeCompany?.nameBangla || 'স্মার্ট হাজিরা AI'}
         enforceGeofence={publicPortalGeofence}
       />
     );
@@ -825,7 +870,7 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={(tab) => setActiveTab(tab as any)}
           orgInfo={orgInfo}
-          activeCompany={activeCompany || registeredCompanies[0] || null}
+          activeCompany={resolvedActiveCompany || activeCompany || null}
           currentUser={currentUser}
           isFirebaseConnected={isFirebaseConnected}
           soundEnabled={soundEnabled}
@@ -856,6 +901,7 @@ export default function App() {
           currentUser={currentUser}
           onGoogleSignIn={handleGoogleSignIn}
           onGoogleSignOut={handleGoogleSignOut}
+          companyName={resolvedActiveCompany?.nameBangla}
         />
       )}
 
@@ -964,6 +1010,7 @@ export default function App() {
               selectedStudentId={selectedLoggedInStudentId}
               scheduleSettings={scheduleSettings}
               onSignOut={handleGoogleSignOut}
+              companyName={resolvedActiveCompany?.nameBangla}
               onUpdateStudent={(updatedStudent) => {
                 setStudents(prev => {
                   const updated = prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s));
@@ -1010,8 +1057,8 @@ export default function App() {
         selectedClassId={selectedClassId}
         onStudentAdded={handleStudentAdded}
         orgInfo={orgInfo}
-        companyId={activeCompany?.id || registeredCompanies[0]?.id}
-        companyName={activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
+        companyId={resolvedActiveCompany?.id || activeCompany?.id || registeredCompanies[0]?.id}
+        companyName={resolvedActiveCompany?.nameBangla || activeCompany?.nameBangla || registeredCompanies[0]?.nameBangla}
       />
 
       {/* Organization Category Selector Modal */}
