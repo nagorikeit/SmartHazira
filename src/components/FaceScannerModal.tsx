@@ -613,15 +613,9 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
       <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-auto gap-2">
         <div className="flex items-center space-x-2 flex-wrap gap-y-2">
           
-          {/* Strict Front Camera Locked Badge */}
-          <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-teal-500/40 text-teal-300 text-xs font-bold shadow-lg flex items-center space-x-1.5 shrink-0">
-            <Lock className="w-3.5 h-3.5 text-teal-400" />
-            <span>সেলফি/ফ্রন্ট ক্যামেরা</span>
-          </div>
-
           <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg flex items-center space-x-1.5 shrink-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>অটোমেটিক ফেস স্ক্যানার</span>
+            <span>ফেস স্ক্যানার</span>
             {selectedClassName && (
               <span className="text-slate-400 border-l border-slate-700 pl-1.5 ml-1">
                 {selectedClassName}

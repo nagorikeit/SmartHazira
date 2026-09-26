@@ -254,11 +254,6 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
       {/* Top Floating Controls - Clean and Minimalist */}
       <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-auto">
         <div className="flex items-center space-x-2">
-          {/* Strict Front Camera Locked Badge */}
-          <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-teal-500/40 text-teal-300 text-xs font-bold shadow-lg flex items-center space-x-1.5 shrink-0">
-            <Lock className="w-3.5 h-3.5 text-teal-400" />
-            <span>সেলফি/ফ্রন্ট ক্যামেরা</span>
-          </div>
 
           {memberName && (
             <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg">
