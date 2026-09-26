@@ -145,7 +145,6 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
   });
 
   const [scanFailureMessage, setScanFailureMessage] = useState<string | null>(null);
-  const [showManualSelection, setShowManualSelection] = useState<boolean>(false);
 
   // Geofence Location Verification Function
   const checkLiveLocation = useCallback(() => {
@@ -826,23 +825,11 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
 
                 </div>
 
-                {/* Subtitle guidance & Quick Manual Select trigger */}
+                {/* Subtitle guidance */}
                 <div className="mt-5 text-center space-y-2 pointer-events-auto">
                   <p className="text-slate-300 text-xs font-semibold drop-shadow-md">
-                    কোনো বাটন চাপার প্রয়োজন নেই — ক্যামেরার সামনে দাঁড়ালেই স্বয়ংক্রিয়ভাবে হাজিরা গ্রহণ হবে
+                    কোনো বাটন চাপার প্রয়োজন নেই — ফেস স্ক্যান করার সাথে সাথে স্বয়ংক্রিয়ভাবে সদস্য সনাক্ত ও হাজিরা এন্ট্রি হবে
                   </p>
-                  
-                  {/* Manual fallback button */}
-                  {students.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowManualSelection(true)}
-                      className="px-4 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-emerald-300 text-[11px] font-bold rounded-full border border-slate-700 backdrop-blur-md transition cursor-pointer flex items-center space-x-1.5 mx-auto"
-                    >
-                      <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>তালিকা থেকে সদস্য বেছে নিন</span>
-                    </button>
-                  )}
                 </div>
 
               </div>
@@ -931,87 +918,6 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
                   </div>
                   <h3 className="font-bold text-base text-white">উপস্থিতি গৃহীত হয়নি</h3>
                   <p className="text-xs text-amber-200">{scanFailureMessage}</p>
-                  
-                  {students.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setScanFailureMessage(null);
-                        setShowManualSelection(true);
-                      }}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center justify-center space-x-1.5"
-                    >
-                      <UserCheck className="w-4 h-4" />
-                      <span>তালিকা থেকে সদস্য নির্বাচন করে হাজিরা দিন</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* MANUAL MEMBER SELECTION DRAWER / MODAL OVERLAY */}
-            {showManualSelection && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150 pointer-events-auto">
-                <div className="bg-slate-900 border border-slate-700 rounded-3xl p-5 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
-                    <div className="flex items-center space-x-2">
-                      <UserCheck className="w-5 h-5 text-emerald-400" />
-                      <h3 className="font-bold text-sm text-white">সদস্য নির্বাচন করে হাজিরা নিন</h3>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowManualSelection(false)}
-                      className="p-1 rounded-full text-slate-400 hover:text-white"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="overflow-y-auto py-3 space-y-2 flex-1 no-scrollbar">
-                    {students.length === 0 ? (
-                      <p className="text-xs text-slate-400 text-center py-6">কোনো সদস্য পাওয়া যায়নি।</p>
-                    ) : (
-                      students.map(std => (
-                        <button
-                          key={std.id}
-                          type="button"
-                          onClick={() => {
-                            if (isLocationBlocked) {
-                              alert(`❌ লোকেশন বাধা:\nআপনি অফিসের অনুমোদিত সীমানার বাইরে অবস্থান করছেন!\n\nবর্তমান দূরত্ব: ${gpsState.distanceMeters ?? 'অজ্ঞাত'} মিটার\nসর্বোচ্চ অনুমোদিত সীমা: ${geofence.radiusMeters} মিটার\nঅফিস: ${geofence.locationName}\n\nহাজিরা দিতে অফিসের নির্ধারিত সীমানার মধ্যে আসুন অথবা এডমিন এক্সেস নিন।`);
-                              return;
-                            }
-                            setShowManualSelection(false);
-                            const snapshot = videoRef.current
-                              ? extractFaceImage(videoRef.current, cameraFacing, faceAnalysis.boundingBox)
-                              : std.faceImage || std.photoUrl || '';
-                            recordAttendanceForStudent(std, snapshot, 0.99, true);
-                          }}
-                          className="w-full p-2.5 rounded-2xl bg-slate-800/80 hover:bg-emerald-950/60 border border-slate-700/80 hover:border-emerald-500/60 text-left flex items-center justify-between transition cursor-pointer group"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-slate-700 text-white font-bold flex items-center justify-center overflow-hidden shrink-0 border border-slate-600">
-                              {std.faceImage || std.photoUrl ? (
-                                <img src={std.faceImage || std.photoUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                std.nameBangla.charAt(0)
-                              )}
-                            </div>
-                            <div>
-                              <div className="font-bold text-sm text-slate-100 group-hover:text-emerald-300">
-                                {std.nameBangla}
-                              </div>
-                              <div className="text-[11px] text-slate-400">
-                                {terminology.idLabel}: {std.roll} {std.className ? `• ${std.className}` : ''}
-                              </div>
-                            </div>
-                          </div>
-                          <span className="px-2.5 py-1 bg-emerald-600/30 text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/30 group-hover:bg-emerald-600 group-hover:text-white transition">
-                            হাজিরা দিন
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
                 </div>
               </div>
             )}
