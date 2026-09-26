@@ -61,8 +61,9 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
 
   // Login Form States
-  const [loginType, setLoginType] = useState<'super_admin' | 'company_admin' | 'member'>('company_admin');
-  const [selectedCompanyIdForLogin, setSelectedCompanyIdForLogin] = useState<string>(companies[0]?.id || '');
+  const [loginType, setLoginType] = useState<'admin_company' | 'member'>('admin_company');
+  const [adminCompanyIdInput, setAdminCompanyIdInput] = useState<string>('');
+  const [adminCompanyPassword, setAdminCompanyPassword] = useState<string>('');
   const [memberLoginPhoneOrRoll, setMemberLoginPhoneOrRoll] = useState<string>('');
   const [loginMessage, setLoginMessage] = useState<string>('');
 
@@ -75,6 +76,7 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
   const [compEmail, setCompEmail] = useState('');
   const [compAddress, setCompAddress] = useState('');
   const [compAdminName, setCompAdminName] = useState('');
+  const [compPassword, setCompPassword] = useState('');
 
   if (!isOpen) return null;
 
@@ -85,10 +87,8 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
       setLoginMessage('');
       const user = await signInWithGoogle();
       if (user) {
-        // Choose role or fallback
-        const effectiveRole = targetRole || (loginType === 'super_admin' ? 'super_admin' : loginType === 'member' ? 'student' : 'teacher');
+        const effectiveRole = targetRole || (loginType === 'member' ? 'student' : 'teacher');
         
-        // Auto-match or associate member if available
         if (effectiveRole === 'student') {
           const matched = students.find(s => 
             (s.email && s.email.toLowerCase() === user.email?.toLowerCase()) ||
@@ -134,7 +134,7 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
       onRoleChange('super_admin');
       onClose();
     } else if (role === 'teacher') {
-      const company = companies.find(c => c.id === selectedCompanyIdForLogin) || companies[0] || {
+      const company = companies[0] || {
         id: 'cmp-default',
         nameBangla: 'স্মার্ট কর্পোরেট অফিস',
         nameEnglish: 'Smart Corporate Office',
@@ -193,41 +193,50 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
     e.preventDefault();
     setLoginMessage('');
 
-    if (loginType === 'super_admin') {
-      const mockUser = {
-        uid: 'super-admin-uid',
-        email: 'superadmin@smarthazira.ai',
-        displayName: 'সুপার এডমিন (সেন্ট্রাল হেডকোয়ার্টার)',
-        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
-      } as unknown as User;
-      if (onSetCurrentUser) onSetCurrentUser(mockUser);
-      onRoleChange('super_admin');
-      onClose();
-    } else if (loginType === 'company_admin') {
-      const company = companies.find(c => c.id === selectedCompanyIdForLogin) || companies[0] || {
-        id: 'cmp-default',
-        nameBangla: 'স্মার্ট কর্পোরেট অফিস',
-        nameEnglish: 'Smart Corporate Office',
-        category: 'corporate',
-        code: 'SCO-2026',
-        contactEmail: 'admin@smarthazira.ai',
-        contactPhone: '01711002233',
-        address: 'ঢাকা, বাংলাদেশ',
-        totalMembers: 5,
-        status: 'Active',
-        registeredDate: new Date().toISOString().split('T')[0],
-        adminName: 'প্রধান এডমিন'
-      };
-      const mockUser = {
-        uid: `comp-${company.id}`,
-        email: company.contactEmail || 'admin@smarthazira.ai',
-        displayName: `${company.nameBangla} (${company.adminName || 'এডমিন'})`,
-        photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(company.nameBangla)}`,
-      } as unknown as User;
-      if (onSetCurrentUser) onSetCurrentUser(mockUser);
-      onSelectCompany(company);
-      onRoleChange('teacher');
-      onClose();
+    if (loginType === 'admin_company') {
+      const inputId = adminCompanyIdInput.trim().toLowerCase();
+      const inputPass = adminCompanyPassword.trim();
+
+      if (inputId === 'admin' || inputId === 'superadmin' || inputId === 'superadmin@smarthazira.ai') {
+        const mockUser = {
+          uid: 'super-admin-uid',
+          email: 'superadmin@smarthazira.ai',
+          displayName: 'সুপার এডমিন (সেন্ট্রাল হেডকোয়ার্টার)',
+          photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
+        } as unknown as User;
+        if (onSetCurrentUser) onSetCurrentUser(mockUser);
+        onRoleChange('super_admin');
+        onClose();
+        return;
+      }
+
+      const matchedCompany = companies.find(
+        c => c.id.toLowerCase() === inputId ||
+             c.code.toLowerCase() === inputId ||
+             (c.contactEmail && c.contactEmail.toLowerCase() === inputId) ||
+             (c.contactPhone && c.contactPhone.trim() === adminCompanyIdInput.trim())
+      ) || companies[0];
+
+      if (matchedCompany) {
+        if (matchedCompany.password && matchedCompany.password.trim() && inputPass !== matchedCompany.password.trim()) {
+          setLoginMessage('ভুল পাসওয়ার্ড! আপনার কোম্পানির সঠিক পাসওয়ার্ড প্রদান করুন।');
+          return;
+        }
+
+        const mockUser = {
+          uid: `comp-${matchedCompany.id}`,
+          email: matchedCompany.contactEmail || 'admin@smarthazira.ai',
+          displayName: `${matchedCompany.nameBangla} (${matchedCompany.adminName || 'এডমিন'})`,
+          photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(matchedCompany.nameBangla)}`,
+        } as unknown as User;
+        if (onSetCurrentUser) onSetCurrentUser(mockUser);
+        onSelectCompany(matchedCompany);
+        onRoleChange('teacher');
+        onClose();
+        return;
+      }
+
+      setLoginMessage('কোনো কোম্পানি বা এডমিন পাওয়া যায়নি।');
     } else if (loginType === 'member') {
       const trimmed = memberLoginPhoneOrRoll.trim();
       const matchedStudent = students.find(s => 
@@ -276,7 +285,8 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
       totalMembers: 0,
       status: 'Active',
       registeredDate: new Date().toISOString().split('T')[0],
-      adminName: compAdminName || currentUser?.displayName || 'কোম্পানি এডমিন'
+      adminName: compAdminName || currentUser?.displayName || 'কোম্পানি এডমিন',
+      password: compPassword || '1234'
     };
 
     const mockUser = {
@@ -308,7 +318,7 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
                 স্মার্ট হাজিরা AI - অথেনটিকেশন পোর্টাল
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                গুগল অথবা রোল আইডি দিয়ে নিরাপদে সাইন-ইন ও রেজিস্ট্রেশন করুন
+                গুগল অথবা আইডি দিয়ে নিরাপদে সাইন-ইন ও রেজিস্ট্রেশন করুন
               </p>
             </div>
           </div>
@@ -321,12 +331,12 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
           </button>
         </div>
 
-        {/* Quick Instant Login Shortcuts (Zero Cookie Friction) */}
+        {/* Quick Instant Login Shortcuts */}
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 p-3.5 rounded-2xl space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1.5 text-emerald-800 dark:text-emerald-300 font-extrabold text-xs">
               <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>১-ক্লিকে সরাসরি ড্যাশবোর্ডে প্রবেশ (কুকিজ মুক্ত)</span>
+              <span>১-ক্লিকে সরাসরি ড্যাশবোর্ডে প্রবেশ</span>
             </div>
             <button
               onClick={handleOpenNewWindow}
@@ -344,7 +354,7 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
               className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-center flex flex-col items-center justify-center space-y-0.5 transition cursor-pointer shadow-sm"
             >
               <Building2 className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-bold">এডমিন ড্যাশবোর্ড</span>
+              <span className="text-[11px] font-bold">কোম্পানি ড্যাশবোর্ড</span>
             </button>
             <button
               type="button"
@@ -352,7 +362,7 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
               className="p-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-center flex flex-col items-center justify-center space-y-0.5 transition cursor-pointer shadow-sm"
             >
               <Users className="w-3.5 h-3.5" />
-              <span className="text-[11px] font-bold">কর্মী ড্যাশবোর্ড</span>
+              <span className="text-[11px] font-bold">ইউজার ড্যাশবোর্ড</span>
             </button>
             <button
               type="button"
@@ -447,31 +457,6 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
           )}
         </div>
 
-        {loginMessage && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 rounded-2xl text-xs space-y-2">
-            <div className="flex items-start space-x-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <span>{loginMessage}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1 border-t border-amber-200 dark:border-amber-800/60">
-              <button
-                type="button"
-                onClick={() => handleDirectBypassLogin('teacher')}
-                className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-[11px] font-bold cursor-pointer hover:bg-emerald-700"
-              >
-                সরাসরি এডমিন প্রবেশ
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenNewWindow}
-                className="px-3 py-1 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] font-bold cursor-pointer"
-              >
-                নতুন ট্যাবে খুলুন
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Tab Selection */}
         <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl text-xs font-bold">
           <button
@@ -508,18 +493,18 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
                 লগইন এর ভূমিকা (Role) নির্বাচন করুন:
               </label>
               
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setLoginType('company_admin')}
+                  onClick={() => setLoginType('admin_company')}
                   className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1 ${
-                    loginType === 'company_admin'
+                    loginType === 'admin_company'
                       ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-extrabold'
                       : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600'
                   }`}
                 >
-                  <Shield className="w-5 h-5 text-emerald-500" />
-                  <span className="text-[11px]">কোম্পানি এডমিন</span>
+                  <Building2 className="w-5 h-5 text-emerald-500" />
+                  <span className="text-[11px]">এডমিন / কোম্পানি</span>
                 </button>
 
                 <button
@@ -532,65 +517,48 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
                   }`}
                 >
                   <Users className="w-5 h-5 text-teal-500" />
-                  <span className="text-[11px]">কর্মী / স্টুডেন্ট</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setLoginType('super_admin')}
-                  className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center space-y-1 ${
-                    loginType === 'super_admin'
-                      ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-extrabold'
-                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600'
-                  }`}
-                >
-                  <ShieldCheck className="w-5 h-5 text-indigo-500" />
-                  <span className="text-[11px]">সুপার এডমিন</span>
+                  <span className="text-[11px]">ইউজার</span>
                 </button>
               </div>
             </div>
 
             {/* Dynamic Inputs Based on Role */}
-            {loginType === 'company_admin' && (
-              <div className="space-y-2 pt-2">
-                <label className="block font-bold text-slate-700 dark:text-slate-300">
-                  আপনার নিবন্ধিত কোম্পানি/প্রতিষ্ঠান নির্বাচন করুন:
-                </label>
-                {companies.length > 0 ? (
-                  <select
-                    value={selectedCompanyIdForLogin}
-                    onChange={(e) => setSelectedCompanyIdForLogin(e.target.value)}
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id} className="text-slate-900 bg-white dark:bg-slate-800 dark:text-white">
-                        {c.nameBangla} ({c.code}) - {c.adminName}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-xs">
-                    এখনও কোনো কোম্পানি নিবন্ধিত হয়নি। প্রথমে <b>"কোম্পানি নিবন্ধন"</b> ট্যাবে ক্লিক করে আপনার প্রতিষ্ঠান যুক্ত করুন।
-                  </div>
-                )}
+            {loginType === 'admin_company' && (
+              <div className="space-y-3 pt-2">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    লগইন আইডি / কোম্পানি কোড / ইমেইল / ফোন *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="যেমন: SCO-2026 বা admin"
+                    value={adminCompanyIdInput}
+                    onChange={(e) => setAdminCompanyIdInput(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    পাসওয়ার্ড *
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="আপনার পাসওয়ার্ড লিখুন"
+                    value={adminCompanyPassword}
+                    onChange={(e) => setAdminCompanyPassword(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
               </div>
             )}
 
             {loginType === 'member' && (
               <div className="space-y-3 pt-2">
-                <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-2xl text-teal-800 dark:text-teal-200 text-xs leading-relaxed">
-                  <p className="font-bold flex items-center space-x-1 mb-1 text-teal-900 dark:text-teal-100">
-                    <ShieldCheck className="w-4 h-4 text-teal-500" />
-                    <span>কর্মী লগইন নীতিমালা:</span>
-                  </p>
-                  <p>
-                    প্রত্যেক কর্মী কোম্পানির অধীনে সংযুক্ত থাকেন। কোম্পানি নিজে তার ড্যাশবোর্ড থেকে কর্মীদের যুক্ত করে। কর্মী নিজে একা রেজিস্ট্রেশন করতে পারে না। আপনার কোম্পানি কর্তৃক প্রদত্ত <b>স্টাফ আইডি / রোল</b> অথবা <b>মোবাইল নম্বর</b> দিয়ে সরাসরি লগইন করুন।
-                  </p>
-                </div>
-
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    আপনার স্টাফ আইডি / রোল নম্বর অথবা মোবাইল নম্বর দিন:
+                    ইউজার আইডি বা মোবাইল নম্বর *
                   </label>
                   <input
                     type="text"
@@ -601,12 +569,6 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
-              </div>
-            )}
-
-            {loginType === 'super_admin' && (
-              <div className="p-3.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl text-indigo-800 dark:text-indigo-200 font-medium">
-                সুপার এডমিন মোডে প্রবেশ করলে দেশের সকল নিবন্ধিত কোম্পানি ও বায়োমেট্রিক ডিভাইস সেন্ট্রাল হাব পরিচালনা করতে পারবেন।
               </div>
             )}
 
@@ -646,7 +608,7 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  কোম্পানি আইডি/কোড*
+                  কোম্পানি কোড*
                 </label>
                 <input
                   type="text"
@@ -702,6 +664,20 @@ export const AuthRegistrationModal: React.FC<AuthRegistrationModalProps> = ({
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-xl font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                পাসওয়ার্ড সেটআপ করুন *
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="কমপক্ষে ৪ অক্ষর"
+                value={compPassword}
+                onChange={(e) => setCompPassword(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 border border-slate-300 dark:border-slate-700 rounded-xl font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
             </div>
 
             <button
