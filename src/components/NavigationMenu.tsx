@@ -17,7 +17,8 @@ import {
   X, 
   SlidersHorizontal,
   Clock,
-  Contact2
+  Contact2,
+  LogOut
 } from 'lucide-react';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { UserRole } from '../types';
@@ -367,23 +368,6 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                 </span>
 
                 <div className="space-y-1.5">
-                  {onOpenGeofenceModal && (
-                    <button
-                      onClick={() => handleAction(onOpenGeofenceModal)}
-                      className="w-full p-3 bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-teal-500/10 dark:from-teal-950/40 dark:to-emerald-950/40 border border-teal-500/40 rounded-2xl flex items-center justify-between hover:bg-teal-500/20 transition cursor-pointer text-left shadow-xs"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-teal-500 text-slate-950 rounded-xl shadow-xs">
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">ম্যানেজমেন্ট এরিয়া (লোকেশন ও Wi-Fi)</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">অফিস পরিধি সীমানা, জিপিএস ও অনুমোদিত Wi-Fi</p>
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-teal-500" />
-                    </button>
-                  )}
 
                   {onOpenRegisterModal && (
                     <button
@@ -510,6 +494,18 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     </button>
                   )}
                 </div>
+
+                {onSignOut && (
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <button
+                      onClick={() => handleAction(onSignOut)}
+                      className="w-full p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 text-red-600 dark:text-red-300 rounded-2xl flex items-center justify-center space-x-2 font-bold text-xs hover:bg-red-100 dark:hover:bg-red-900/50 transition cursor-pointer shadow-xs"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>লগআউট / প্রস্থান করুন</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
