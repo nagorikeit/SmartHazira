@@ -5,29 +5,15 @@ import {
   LogIn, 
   ShieldCheck, 
   Users, 
-  Briefcase, 
-  Phone, 
-  Mail, 
-  Key, 
-  CheckCircle2, 
-  Sparkles,
-  ArrowRight,
-  Shield,
-  Loader2,
   AlertTriangle,
-  Building,
-  UserCheck,
-  Zap,
-  Clock,
-  Smartphone,
-  ExternalLink,
+  Loader2,
   Plus,
   Eye,
   EyeOff,
-  Lock
+  ArrowRight
 } from 'lucide-react';
 import { RegisteredCompany, Student, UserRole } from '../types';
-import { OrgCategoryKey, ORG_CATEGORIES } from '../utils/organizationConfig';
+import { OrgCategoryKey } from '../utils/organizationConfig';
 import { signInWithGoogle } from '../lib/firebase';
 import { User } from 'firebase/auth';
 
@@ -45,7 +31,6 @@ interface MandatoryLoginGateProps {
 }
 
 export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
-  onGoogleSignIn,
   companies,
   students,
   onAddCompany,
@@ -53,23 +38,18 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   onSelectCompany,
   onSelectLoggedInStudent,
   onSetCurrentUser,
-  orgCategory,
   onOpenPublicPortal,
 }) => {
-  // Role Selector: 'super_admin' | 'company' | 'user'
-  const [selectedRoleType, setSelectedRoleType] = useState<'super_admin' | 'company' | 'user'>('company');
+  // Role Selector: 'admin_company' | 'user'
+  const [selectedRoleType, setSelectedRoleType] = useState<'admin_company' | 'user'>('admin_company');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
 
-  // Super Admin Credentials
-  const [adminPin, setAdminPin] = useState<string>('');
-
-  // Company Login Credentials
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(companies[0]?.id || '');
-  const [companyCodeInput, setCompanyCodeInput] = useState<string>('');
-  const [companyPassword, setCompanyPassword] = useState<string>('');
-  const [showCompanyPassword, setShowCompanyPassword] = useState<boolean>(false);
+  // Admin / Company Credentials
+  const [adminCompanyLoginId, setAdminCompanyLoginId] = useState<string>('');
+  const [adminCompanyPassword, setAdminCompanyPassword] = useState<string>('');
+  const [showAdminCompanyPassword, setShowAdminCompanyPassword] = useState<boolean>(false);
 
   // User / Employee Credentials
   const [userRollOrPhone, setUserRollOrPhone] = useState<string>('');
@@ -85,51 +65,57 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   const [newCompConfirmPassword, setNewCompConfirmPassword] = useState<string>('');
   const [showNewCompPassword, setShowNewCompPassword] = useState<boolean>(false);
 
-  // 1. Super Admin Login
-  const handleSuperAdminLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMessage('');
-    const mockUser = {
-      uid: 'super-admin-uid',
-      email: 'superadmin@smarthazira.ai',
-      displayName: 'সুপার এডমিন (সিস্টেম হেডকোয়ার্টার)',
-      photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
-    } as unknown as User;
-    onSetCurrentUser(mockUser);
-    onRoleChange('super_admin');
-  };
-
-  // 2. Company Admin Login
-  const handleCompanyLogin = (e?: React.FormEvent) => {
+  // 1. Admin & Company Unified Login
+  const handleAdminCompanyLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage('');
 
-    let matchedCompany = companies.find(c => c.id === selectedCompanyId);
-    if (companyCodeInput.trim()) {
-      const codeMatched = companies.find(
-        c => c.code.toLowerCase() === companyCodeInput.trim().toLowerCase() ||
-             c.contactPhone === companyCodeInput.trim()
-      );
-      if (codeMatched) matchedCompany = codeMatched;
+    if (!adminCompanyLoginId.trim()) {
+      setErrorMessage('অনুগ্রহ করে লগইন আইডি, ইমেইল বা ফোন নম্বর লিখুন।');
+      return;
     }
 
+    const trimmedId = adminCompanyLoginId.trim().toLowerCase();
+
+    // Super Admin check
+    if (trimmedId === 'superadmin' || trimmedId === 'admin' || trimmedId === 'superadmin@smarthazira.ai') {
+      const mockUser = {
+        uid: 'super-admin-uid',
+        email: 'superadmin@smarthazira.ai',
+        displayName: 'সুপার এডমিন (সিস্টেম হেডকোয়ার্টার)',
+        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60',
+      } as unknown as User;
+      onSetCurrentUser(mockUser);
+      onRoleChange('super_admin');
+      return;
+    }
+
+    // Match company by code, email, phone, or ID
+    let matchedCompany = companies.find(
+      c => c.code.toLowerCase() === trimmedId ||
+           (c.contactEmail && c.contactEmail.toLowerCase() === trimmedId) ||
+           (c.contactPhone && c.contactPhone.trim() === trimmedId) ||
+           c.id.toLowerCase() === trimmedId
+    );
+
+    // If only 1 company exists or fallback match
     if (!matchedCompany && companies.length > 0) {
       matchedCompany = companies[0];
     }
 
     if (!matchedCompany) {
-      setErrorMessage('কোন কোম্পানি পাওয়া যায়নি। অনুগ্রহ করে প্রথমে একটি কোম্পানি নিবন্ধন করুন।');
+      setErrorMessage('কোন কোম্পানি পাওয়া যায়নি। অনুগ্রহ করে নিবন্ধিত লগইন আইডি দিন অথবা নতুন কোম্পানি তৈরি করুন।');
       return;
     }
 
-    // Verify company password if set
+    // Verify company password
     if (matchedCompany.password && matchedCompany.password.trim()) {
-      if (!companyPassword.trim()) {
-        setErrorMessage(`"${matchedCompany.nameBangla}" কোম্পানির এডমিন পাসওয়ার্ড লিখুন।`);
+      if (!adminCompanyPassword.trim()) {
+        setErrorMessage(`"${matchedCompany.nameBangla}" এডমিন পাসওয়ার্ড লিখুন।`);
         return;
       }
-      if (companyPassword.trim() !== matchedCompany.password.trim()) {
-        setErrorMessage('ভুল পাসওয়ার্ড! আপনার কোম্পানির সঠিক এডমিন পাসওয়ার্ড প্রদান করুন।');
+      if (adminCompanyPassword.trim() !== matchedCompany.password.trim()) {
+        setErrorMessage('ভুল পাসওয়ার্ড! সঠিক পাসওয়ার্ড প্রদান করুন।');
         return;
       }
     }
@@ -143,22 +129,21 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
 
     onSetCurrentUser(mockUser);
     onSelectCompany(matchedCompany);
-    onRoleChange('teacher'); // 'teacher' acts as Company Admin in the applet
+    onRoleChange('teacher'); // Company Admin role
   };
 
-  // 3. User / Employee Login
+  // 2. User / Employee Login
   const handleUserLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage('');
 
     if (!userRollOrPhone.trim()) {
-      // Login with first student as fallback
       const defaultStudent = students[0];
       if (defaultStudent) {
         loginAsStudent(defaultStudent);
         return;
       }
-      setErrorMessage('অনুগ্রহ করে আপনার আইডি বা মোবাইল নম্বর লিখুন।');
+      setErrorMessage('অনুগ্রহ করে আপনার ইউজার আইডি বা মোবাইল নম্বর লিখুন।');
       return;
     }
 
@@ -173,7 +158,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     if (matched) {
       loginAsStudent(matched);
     } else {
-      setErrorMessage(`"${userRollOrPhone}" আইডি বা নম্বর দিয়ে কোনো কর্মী পাওয়া যায়নি। অনুগ্রহ করে সঠিক আইডি দিন।`);
+      setErrorMessage(`"${userRollOrPhone}" আইডি বা মোবাইল নম্বর দিয়ে কোনো কর্মী পাওয়া যায়নি।`);
     }
   };
 
@@ -185,7 +170,6 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
       photoURL: std.faceImage || std.photoUrl,
     } as unknown as User;
 
-    // Attach company if student has one
     if (std.companyId) {
       const cmp = companies.find(c => c.id === std.companyId);
       if (cmp) onSelectCompany(cmp);
@@ -203,10 +187,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     try {
       const user = await signInWithGoogle();
       if (user) {
-        if (selectedRoleType === 'super_admin') {
-          onSetCurrentUser(user);
-          onRoleChange('super_admin');
-        } else if (selectedRoleType === 'user') {
+        if (selectedRoleType === 'user') {
           const matched = students.find(s => 
             (s.email && s.email.toLowerCase() === user.email?.toLowerCase()) ||
             s.name.toLowerCase().includes(user.displayName?.toLowerCase() || '')
@@ -239,7 +220,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     }
 
     if (!newCompPassword.trim()) {
-      setErrorMessage('কোম্পানি এডমিনের জন্য একটি পাসওয়ার্ড সেটআপ করা বাধ্যতামূলক।');
+      setErrorMessage('এডমিন পাসওয়ার্ড সেটআপ করা বাধ্যতামূলক।');
       return;
     }
 
@@ -249,7 +230,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     }
 
     if (newCompPassword !== newCompConfirmPassword) {
-      setErrorMessage('পাসওয়ার্ড দুটি মিলছে না! অনুগ্রহ করে পুনরায় টাইপ করুন।');
+      setErrorMessage('পাসওয়ার্ড দুটি মিলছে না! পুনরায় চেষ্টা করুন।');
       return;
     }
 
@@ -309,7 +290,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
       {/* Main Login Card */}
       <main className="max-w-md w-full mx-auto my-6 bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-7 shadow-xl space-y-6">
         
-        {/* PUBLIC PORTAL BUTTON (Top Highlight for Tablet/Mobile Kiosk) */}
+        {/* PUBLIC PORTAL BUTTON */}
         {onOpenPublicPortal && (
           <button
             type="button"
@@ -329,63 +310,46 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
           </button>
         )}
 
-        {/* Unified Role Selector (3 Tabs: Admin, Company, User) */}
+        {/* Role Selector Tabs (2 Tabs: Admin/Company & User) */}
         <div className="space-y-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center">
-            লগইন রোল নির্বাচন করুন
+            লগইন অপশন নির্বাচন করুন
           </p>
 
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
+          <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200 text-xs font-bold">
             
-            {/* 1. Super Admin */}
+            {/* 1. Admin & Company */}
             <button
               type="button"
               onClick={() => {
-                setSelectedRoleType('super_admin');
+                setSelectedRoleType('admin_company');
                 setErrorMessage('');
               }}
-              className={`py-2 px-2 rounded-xl transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                selectedRoleType === 'super_admin'
-                  ? 'bg-emerald-600 text-white font-black shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              <Shield className="w-4 h-4" />
-              <span className="text-[11px]">এডমিন</span>
-            </button>
-
-            {/* 2. Company */}
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedRoleType('company');
-                setErrorMessage('');
-              }}
-              className={`py-2 px-2 rounded-xl transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                selectedRoleType === 'company'
+              className={`py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${
+                selectedRoleType === 'admin_company'
                   ? 'bg-emerald-600 text-white font-black shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
               <Building2 className="w-4 h-4" />
-              <span className="text-[11px]">কোম্পানি</span>
+              <span className="text-xs">এডমিন / কোম্পানি</span>
             </button>
 
-            {/* 3. User / Member */}
+            {/* 2. User / Member */}
             <button
               type="button"
               onClick={() => {
                 setSelectedRoleType('user');
                 setErrorMessage('');
               }}
-              className={`py-2 px-2 rounded-xl transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
+              className={`py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${
                 selectedRoleType === 'user'
                   ? 'bg-emerald-600 text-white font-black shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
               }`}
             >
               <Users className="w-4 h-4" />
-              <span className="text-[11px]">ইউজার</span>
+              <span className="text-xs">ইউজার</span>
             </button>
 
           </div>
@@ -399,85 +363,42 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
           </div>
         )}
 
-        {/* 1. SUPER ADMIN FORM */}
-        {selectedRoleType === 'super_admin' && (
-          <form onSubmit={handleSuperAdminLogin} className="space-y-4">
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1">
-              <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>সুপার এডমিন কন্ট্রোল</span>
-              </p>
-              <p className="text-[11px] text-slate-600">
-                সকল নিবন্ধিত কোম্পানি পরিচালনা, মনিটরিং ও কেন্দ্রীয় নিয়ন্ত্রণ এক্সেস।
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>এডমিন প্যানেলে প্রবেশ করুন</span>
-            </button>
-          </form>
-        )}
-
-        {/* 2. COMPANY ADMIN FORM */}
-        {selectedRoleType === 'company' && (
-          <form onSubmit={handleCompanyLogin} className="space-y-4">
+        {/* 1. ADMIN & COMPANY FORM */}
+        {selectedRoleType === 'admin_company' && (
+          <form onSubmit={handleAdminCompanyLogin} className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                আপনার কোম্পানি নির্বাচন করুন
-              </label>
-              <select
-                value={selectedCompanyId}
-                onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-medium cursor-pointer"
-              >
-                {companies.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.nameBangla} ({c.code}) - {c.totalMembers || 0} জন কর্মী
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                কোম্পানি কোড (ঐচ্ছিক)
+                লগইন আইডি / ইমেইল / কোম্পানি কোড *
               </label>
               <input
                 type="text"
-                value={companyCodeInput}
-                onChange={(e) => setCompanyCodeInput(e.target.value)}
-                placeholder="যেমন: SCO-2026 বা ফোন নম্বর"
-                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
+                value={adminCompanyLoginId}
+                onChange={(e) => setAdminCompanyLoginId(e.target.value)}
+                placeholder="যেমন: admin@company.com বা C-101"
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-medium"
               />
             </div>
 
             <div>
               <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                এডমিন পাসওয়ার্ড
+                পাসওয়ার্ড *
               </label>
               <div className="relative">
                 <input
-                  type={showCompanyPassword ? 'text' : 'password'}
-                  value={companyPassword}
-                  onChange={(e) => setCompanyPassword(e.target.value)}
-                  placeholder="কোম্পানি এডমিন পাসওয়ার্ড লিখুন"
+                  type={showAdminCompanyPassword ? 'text' : 'password'}
+                  value={adminCompanyPassword}
+                  onChange={(e) => setAdminCompanyPassword(e.target.value)}
+                  placeholder="আপনার লগইন পাসওয়ার্ড দিন"
                   className="w-full pl-3.5 pr-10 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowCompanyPassword(prev => !prev)}
+                  onClick={() => setShowAdminCompanyPassword(prev => !prev)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 cursor-pointer p-1"
                 >
-                  {showCompanyPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showAdminCompanyPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                💡 রেজিস্ট্রেশনের সময় সেটআপ করা পাসওয়ার্ড দিন
-              </p>
             </div>
 
             <button
@@ -485,7 +406,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
-              <span>কোম্পানি ড্যাশবোর্ডে প্রবেশ করুন</span>
+              <span>ড্যাশবোর্ডে প্রবেশ করুন</span>
             </button>
 
             {/* Quick Link to Register Company */}
@@ -502,12 +423,12 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
           </form>
         )}
 
-        {/* 3. USER / MEMBER FORM */}
+        {/* 2. USER / MEMBER FORM */}
         {selectedRoleType === 'user' && (
           <form onSubmit={handleUserLogin} className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                কর্মীর আইডি বা মোবাইল নম্বর *
+                ইউজার আইডি বা মোবাইল নম্বর *
               </label>
               <input
                 type="text"
@@ -519,7 +440,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
             </div>
 
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600">
-              💡 ইউজার হিসেবে লগইন করে আপনি নিজের আজকের উপস্থিতি দেখতে পারবেন এবং ক্যামেরা দিয়ে ফেস হাজিরা দিতে পারবেন।
+              💡 ইউজার হিসেবে লগইন করে আপনার ফেস হাজিরা ডাটা এবং উপস্থিতির তথ্য দেখতে পারবেন।
             </div>
 
             <button
@@ -527,7 +448,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-2xl text-xs flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
-              <span>কর্মী ড্যাশবোর্ডে প্রবেশ করুন</span>
+              <span>ইউজার প্যানেলে প্রবেশ করুন</span>
             </button>
           </form>
         )}
