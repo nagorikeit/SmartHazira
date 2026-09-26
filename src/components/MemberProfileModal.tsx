@@ -532,24 +532,6 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                 />
               </div>
 
-              {/* Department / Class */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {terminology.groupLabel} / বিভাগ
-                </label>
-                <select
-                  value={classId}
-                  onChange={(e) => setClassId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-emerald-500 font-medium cursor-pointer"
-                >
-                  {classes.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.classNameBangla} ({c.section})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Assigned Shift (কয়টা থেকে কয়টা) */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
@@ -567,20 +549,6 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                     </option>
                   ))}
                 </select>
-              </div>
-
-              {/* Designation */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  পদবী / ডেজিগনেশন
-                </label>
-                <input
-                  type="text"
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value)}
-                  placeholder="যেমন: সিনিয়র অপারেটর"
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-emerald-500"
-                />
               </div>
 
               {/* Phone */}

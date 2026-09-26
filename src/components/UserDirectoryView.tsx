@@ -464,7 +464,6 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                 <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[200px]">{terminology.memberLabel} ও প্রোফাইল</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[100px]">{terminology.idLabel}</th>
-                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">{terminology.groupLabel}</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[150px]">যোগাযোগ</th>
                   <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">মোবাইল ফেস স্ট্যাটাস</th>
                   <th className="py-3.5 px-4 text-center whitespace-nowrap min-w-[90px]">স্ট্যাটাস</th>
@@ -473,7 +472,6 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {filteredStudents.map(student => {
-                  const studentClass = classes.find(c => c.id === student.classId);
                   const hasFace = isFaceActuallyRegistered(student);
 
                   return (
@@ -494,9 +492,11 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                           </div>
                           <div className="min-w-0">
                             <p className="font-bold text-slate-900 dark:text-white truncate group-hover:text-emerald-500 transition">{student.nameBangla}</p>
-                            <p className="text-[10px] text-slate-400 truncate">
-                              {student.designation || student.nameEnglish || 'কর্মরত'}
-                            </p>
+                            {student.nameEnglish && (
+                              <p className="text-[10px] text-slate-400 truncate">
+                                {student.nameEnglish}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -504,13 +504,6 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                       {/* ID / Roll */}
                       <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {student.roll}
-                      </td>
-
-                      {/* Class / Department */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                          {studentClass?.classNameBangla || student.classId}
-                        </span>
                       </td>
 
                       {/* Contact */}

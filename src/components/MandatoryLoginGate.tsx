@@ -177,17 +177,31 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
     }
 
     const trimmed = userRollOrPhone.trim().toLowerCase();
+    const cleanDigits = trimmed.replace(/\D/g, '');
+
     const matched = students.find(
-      s => String(s.roll).trim().toLowerCase() === trimmed ||
-           (s.guardianPhone && s.guardianPhone.trim() === trimmed) ||
-           (s.parentPhone && s.parentPhone.trim() === trimmed) ||
-           s.nameBangla.toLowerCase().includes(trimmed)
+      s => {
+        const sRoll = String(s.roll).trim().toLowerCase();
+        const sPhone1 = (s.guardianPhone || '').replace(/\D/g, '');
+        const sPhone2 = (s.parentPhone || '').replace(/\D/g, '');
+        const rawPhone1 = (s.guardianPhone || '').trim().toLowerCase();
+        const rawPhone2 = (s.parentPhone || '').trim().toLowerCase();
+
+        return (
+          sRoll === trimmed ||
+          (cleanDigits.length >= 6 && (sPhone1.endsWith(cleanDigits) || cleanDigits.endsWith(sPhone1))) ||
+          (cleanDigits.length >= 6 && (sPhone2.endsWith(cleanDigits) || cleanDigits.endsWith(sPhone2))) ||
+          rawPhone1 === trimmed ||
+          rawPhone2 === trimmed ||
+          s.nameBangla.toLowerCase().includes(trimmed)
+        );
+      }
     );
 
     if (matched) {
       loginAsStudent(matched);
     } else {
-      setErrorMessage(`"${userRollOrPhone}" আইডি বা নম্বর দিয়ে কোনো কর্মী পাওয়া যায়নি। অনুগ্রহ করে সঠিক আইডি দিন।`);
+      setErrorMessage(`"${userRollOrPhone}" আইডি বা মোবাইল নম্বর দিয়ে কোনো কর্মী পাওয়া যায়নি। অনুগ্রহ করে সঠিক আইডি বা মোবাইল নম্বর প্রদান করুন।`);
     }
   };
 
