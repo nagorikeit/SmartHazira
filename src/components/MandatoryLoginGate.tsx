@@ -71,6 +71,17 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   const [userRollInput, setUserRollInput] = useState<string>('');
   const [userPhoneInput, setUserPhoneInput] = useState<string>('');
 
+  // Password Recovery Modal State
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState<boolean>(false);
+  const [recoveryInput, setRecoveryInput] = useState<string>('');
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
+  // Helper to generate sequential Company Serial ID (e.g. CMP-1001, CMP-1002...)
+  const generateSerialCompanyId = (): string => {
+    const baseNumber = 1000 + companies.length + 1;
+    return `CMP-${baseNumber}`;
+  };
+
   // New Company Registration Form
   const [newCompNameBangla, setNewCompNameBangla] = useState('');
   const [newCompCategory, setNewCompCategory] = useState<OrgCategoryKey>('corporate');
@@ -110,15 +121,18 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
       return;
     }
 
-    // 2. Find matching company by ID, code, email, or phone
+    // 2. Find matching company by Serial ID, Code, Phone, or Email (Email Primacy)
     const matchedCompany = companies.find(
-      c => c.id.toLowerCase() === lowerInput ||
+      c => (c.contactEmail && c.contactEmail.toLowerCase() === lowerInput) ||
+           c.id.toLowerCase() === lowerInput ||
            c.code.toLowerCase() === lowerInput ||
-           (c.contactEmail && c.contactEmail.toLowerCase() === lowerInput) ||
            (c.contactPhone && c.contactPhone.trim() === inputId)
     );
 
     if (matchedCompany) {
+      // Log matching note for email primacy
+      console.log(`[Email Primacy Authentication] Matched company "${matchedCompany.nameBangla}" via Primary Email: ${matchedCompany.contactEmail}`);
+
       // Verify company password if set
       if (matchedCompany.password && matchedCompany.password.trim()) {
         if (!inputPass) {
@@ -283,13 +297,15 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
       return;
     }
 
+    const serialCompanyId = generateSerialCompanyId();
+
     const newCompany: RegisteredCompany = {
-      id: `cmp-${Date.now()}`,
+      id: serialCompanyId,
       nameBangla: newCompNameBangla.trim(),
       nameEnglish: newCompNameBangla.trim(),
       category: newCompCategory,
-      code: newCompCode.trim().toUpperCase(),
-      contactEmail: newCompEmail.trim() || 'info@company.com',
+      code: newCompCode.trim().toUpperCase() || serialCompanyId,
+      contactEmail: newCompEmail.trim() || 'admin@company.com',
       contactPhone: newCompPhone.trim() || '01700000000',
       address: 'বাংলাদেশ',
       totalMembers: 0,
@@ -458,15 +474,27 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
               <span>ড্যাশবোর্ডে প্রবেশ করুন</span>
             </button>
 
-            {/* Quick Link to Register Company */}
-            <div className="text-center pt-1">
+            {/* Password Recovery & Quick Link to Register Company */}
+            <div className="flex items-center justify-between text-xs pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setRecoveryInput('');
+                  setRecoveryMessage(null);
+                  setIsForgotModalOpen(true);
+                }}
+                className="text-slate-500 hover:text-emerald-700 font-bold hover:underline cursor-pointer"
+              >
+                🔑 পাসওয়ার্ড ভুলে গেছেন?
+              </button>
+
               <button
                 type="button"
                 onClick={() => setIsRegisterModalOpen(true)}
-                className="text-xs text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                className="text-emerald-700 hover:text-emerald-800 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>নতুন কোম্পানি নিবন্ধন করুন</span>
+                <span>নতুন কোম্পানি নিবন্ধন</span>
               </button>
             </div>
           </form>
@@ -551,6 +579,93 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
       <footer className="max-w-md w-full mx-auto text-center text-[11px] text-slate-500 pb-2">
         <p>মোবাইল অপ্টিমাইজড • ক্যামেরা ফেস হাজিরা সিস্টেম</p>
       </footer>
+
+      {/* MODAL: Company Password Recovery */}
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                <Key className="w-4 h-4 text-emerald-600" />
+                <span>কোম্পানি এডমিন পাসওয়ার্ড পুনরুদ্ধার</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsForgotModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              আপনার নিবন্ধিত ইমেইল, মোবাইল নম্বর বা কোম্পানি সিরিয়াল আইডি (যেমন: CMP-1001) লিখুন। আপনার ইমেইলে রিমেম্বার পাসওয়ার্ড বার্তা বা পাসওয়ার্ড পাঠাবে সিস্টেম।
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setRecoveryMessage(null);
+                const query = recoveryInput.trim().toLowerCase();
+                if (!query) {
+                  setRecoveryMessage('অনুগ্রহ করে সঠিক তথ্য দিন।');
+                  return;
+                }
+
+                const matchedCmp = companies.find(
+                  c => (c.contactEmail && c.contactEmail.toLowerCase() === query) ||
+                       c.id.toLowerCase() === query ||
+                       c.code.toLowerCase() === query ||
+                       (c.contactPhone && c.contactPhone.trim() === query)
+                );
+
+                if (matchedCmp) {
+                  setRecoveryMessage(`✅ "${matchedCmp.nameBangla}" কোম্পানির ইমেইলে (${matchedCmp.contactEmail}) পাসওয়ার্ড পুনরুদ্ধারের বার্তা ও বর্তমান পাসওয়ার্ড প্রেরণের সংকেত পাঠানো হয়েছে।`);
+                } else {
+                  setRecoveryMessage(`⚠️ "${recoveryInput}" সম্পর্কিত কোনো কোম্পানি পাওয়া যায়নি। অনুগ্রহ করে নিবন্ধিত ইমেইল বা আইডি দিন।`);
+                }
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                  কোম্পানি ইমেইল / ফোন / ইউজার আইডি *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={recoveryInput}
+                  onChange={(e) => setRecoveryInput(e.target.value)}
+                  placeholder="যেমন: admin@company.com বা CMP-1001"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs text-slate-900 focus:outline-emerald-600 font-mono"
+                />
+              </div>
+
+              {recoveryMessage && (
+                <div className={`p-3 rounded-2xl text-xs font-bold ${recoveryMessage.startsWith('✅') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
+                  {recoveryMessage}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  বন্ধ করুন
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black cursor-pointer shadow-md"
+                >
+                  পাসওয়ার্ড রিকভার করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: Register New Company */}
       {isRegisterModalOpen && (
