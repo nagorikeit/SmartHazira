@@ -33,7 +33,9 @@ import {
   Info
 } from 'lucide-react';
 import { isFaceActuallyRegistered, isFingerprintActuallyRegistered, isFingerprintPendingApproval, isFingerprintApproved, speakBengaliAttendance } from '../utils/faceMatching';
+import { registerWebAuthnPasskey, verifyWebAuthnPasskey } from '../utils/mobileBiometrics';
 import { MobileFingerprintEnrollModal } from './MobileFingerprintEnrollModal';
+import { Key, ExternalLink, ArrowRight } from 'lucide-react';
 
 interface StudentDashboardProps {
   students: Student[];
@@ -46,6 +48,7 @@ interface StudentDashboardProps {
   scheduleSettings?: OrganizationScheduleSettings;
   onSignOut?: () => void;
   companyName?: string;
+  onOpenPublicPortal?: () => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -72,6 +75,81 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [fingerprintSuccessMessage, setFingerprintSuccessMessage] = useState<string | null>(null);
   const [fingerprintErrorMessage, setFingerprintErrorMessage] = useState<string | null>(null);
   const [lastPunchedTime, setLastPunchedTime] = useState<string | null>(null);
+
+  // Secure Public Attendance Link Passkey Flow State
+  const [isPasskeyFlowOpen, setIsPasskeyFlowOpen] = useState<boolean>(false);
+  const [passkeyFlowStep, setPasskeyFlowStep] = useState<'setup_passkey' | 'verify_passkey' | 'launch_portal'>('setup_passkey');
+  const [isPasskeyProcessing, setIsPasskeyProcessing] = useState<boolean>(false);
+  const [passkeyErrorMessage, setPasskeyErrorMessage] = useState<string | null>(null);
+  const [passkeySuccessMessage, setPasskeySuccessMessage] = useState<string | null>(null);
+
+  const handleStartPublicAttendanceFlow = () => {
+    if (!activeStudent) return;
+    setPasskeyErrorMessage(null);
+    setPasskeySuccessMessage(null);
+    setIsPasskeyProcessing(false);
+
+    if (activeStudent.passkeyRegistered) {
+      setPasskeyFlowStep('verify_passkey');
+    } else {
+      setPasskeyFlowStep('setup_passkey');
+    }
+
+    setIsPasskeyFlowOpen(true);
+  };
+
+  const handleSetupPasskey = async () => {
+    if (!activeStudent) return;
+    setIsPasskeyProcessing(true);
+    setPasskeyErrorMessage(null);
+    setPasskeySuccessMessage(null);
+
+    const result = await registerWebAuthnPasskey(activeStudent.id, activeStudent.nameBangla);
+    setIsPasskeyProcessing(false);
+
+    if (result.success) {
+      const updatedStudent: Student = {
+        ...activeStudent,
+        passkeyRegistered: true,
+        passkeyCredentialId: result.credentialId,
+        passkeyRegisteredAt: new Date().toISOString(),
+        lastLoginDevice: currentDeviceName,
+      };
+
+      if (onUpdateStudent) {
+        onUpdateStudent(updatedStudent);
+      }
+
+      setPasskeySuccessMessage('🎉 প্রথমবার Fingerprint / Passkey সেটআপ সফল হয়েছে!');
+      setPasskeyFlowStep('verify_passkey');
+    } else {
+      setPasskeyErrorMessage(result.error || 'পাসকি সেটআপ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');
+    }
+  };
+
+  const handleVerifyPasskey = async () => {
+    if (!activeStudent) return;
+    setIsPasskeyProcessing(true);
+    setPasskeyErrorMessage(null);
+    setPasskeySuccessMessage(null);
+
+    const result = await verifyWebAuthnPasskey(activeStudent.id, activeStudent.passkeyCredentialId);
+    setIsPasskeyProcessing(false);
+
+    if (result.success) {
+      setPasskeySuccessMessage('✅ Fingerprint / Passkey যাচাই সফল হয়েছে!');
+      setPasskeyFlowStep('launch_portal');
+
+      setTimeout(() => {
+        setIsPasskeyFlowOpen(false);
+        if (onOpenPublicPortal) {
+          onOpenPublicPortal();
+        }
+      }, 1200);
+    } else {
+      setPasskeyErrorMessage(result.error || 'পাসকি যাচাইকরণ ব্যর্থ হয়েছে।');
+    }
+  };
 
   // Security & Device Lock State
   const [isDeviceLocked, setIsDeviceLocked] = useState<boolean>(false);
@@ -428,9 +506,47 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         )}
 
         {/* Attendance Action Panels Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* Action 1: Mobile Fingerprint Setup & Attendance */}
+          {/* Action 1: Public Attendance Link Secure Passkey Flow */}
+          <div className="bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-indigo-500/40 flex flex-col justify-between space-y-4 shadow-lg shadow-indigo-900/20">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-extrabold text-sm text-indigo-300 flex items-center gap-2">
+                  <ExternalLink className="w-5 h-5 text-indigo-400" />
+                  <span>Public Attendance Link</span>
+                </h3>
+
+                {activeStudent?.passkeyRegistered ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    <span>পাসকি প্রস্তুত</span>
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    প্রথমবার সেটআপ
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                পাবলিক হাজিরা লিংকে প্রবেশের আগে আপনার ডিভাইসের পাসকি/ফিঙ্গারপ্রিন্ট নিরাপদভাবে যাচাই করা হবে।
+              </p>
+            </div>
+
+            <button
+              id="btn-public-attendance-link-secure-flow"
+              type="button"
+              onClick={handleStartPublicAttendanceFlow}
+              disabled={isDeviceLocked}
+              className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-600 hover:from-indigo-500 hover:to-indigo-600 text-white font-extrabold text-xs rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              <Key className="w-4 h-4 text-indigo-300" />
+              <span>পাবলিক হাজিরা লিংকে যান (নিরাপদ ফ্লো)</span>
+            </button>
+          </div>
+
+          {/* Action 2: Mobile Fingerprint Setup & Attendance */}
           <div className="bg-slate-900/90 p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -883,6 +999,191 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Employee Public Attendance Link Passkey Verification Modal */}
+      {isPasskeyFlowOpen && activeStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-5 sm:p-7 text-white space-y-6">
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-indigo-500/20 text-indigo-400 rounded-2xl border border-indigo-500/30">
+                  <Key className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    Public Attendance Link - নিরাপদ ফ্লো
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    কর্মী ডিভাইস ভেরিফিকেশন ও পাসকি সিকিউরিটি
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsPasskeyFlowOpen(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Step Progress Tracker */}
+            <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-extrabold">
+              <div className={`p-2 rounded-xl border ${
+                passkeyFlowStep === 'setup_passkey'
+                  ? 'bg-indigo-950 border-indigo-500 text-indigo-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400'
+              }`}>
+                ১. পাসকি সেটআপ
+              </div>
+              <div className={`p-2 rounded-xl border ${
+                passkeyFlowStep === 'verify_passkey'
+                  ? 'bg-indigo-950 border-indigo-500 text-indigo-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400'
+              }`}>
+                ২. ফিঙ্গারপ্রিন্ট যাচাই
+              </div>
+              <div className={`p-2 rounded-xl border ${
+                passkeyFlowStep === 'launch_portal'
+                  ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400'
+              }`}>
+                ৩. হাজিরা পোর্টাল
+              </div>
+            </div>
+
+            {/* Employee Info Card */}
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-800 shrink-0">
+                  <img src={activeStudent.photoUrl} alt={activeStudent.nameBangla} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <span className="font-extrabold text-white block">{activeStudent.nameBangla}</span>
+                  <span className="text-[10px] text-slate-400">আইডি: {activeStudent.roll} • {activeStudent.className}</span>
+                </div>
+              </div>
+              <span className="px-2 py-1 bg-slate-800 rounded-lg text-[10px] font-mono text-emerald-400">
+                {currentDeviceName}
+              </span>
+            </div>
+
+            {/* Alerts */}
+            {passkeySuccessMessage && (
+              <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{passkeySuccessMessage}</span>
+              </div>
+            )}
+
+            {passkeyErrorMessage && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-2xl text-rose-300 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{passkeyErrorMessage}</span>
+              </div>
+            )}
+
+            {/* STEP 1: Passkey Setup */}
+            {passkeyFlowStep === 'setup_passkey' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                  <p className="font-extrabold text-white flex items-center gap-2">
+                    <Key className="w-4 h-4 text-indigo-400" />
+                    <span>প্রথমবার পাসকি / ফিঙ্গারপ্রিন্ট সেটআপ</span>
+                  </p>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    আপনার বর্তমান ডিভাইসে পাসকি (WebAuthn) সেটআপ করার জন্য নিচের বোতামে চাপুন। ডিভাইসের বায়োমেট্রিক বা স্ক্রিন লক দিয়ে সেটআপ সম্পূর্ণ করুন। কোনো বায়োমেট্রিক ডাটা ডাটাবেজে সংরক্ষণ করা হয় না।
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSetupPasskey}
+                  disabled={isPasskeyProcessing}
+                  className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isPasskeyProcessing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>পাসকি সেটআপ করা হচ্ছে...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4" />
+                      <span>🔑 Fingerprint / Passkey Setup করুন</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* STEP 2: Passkey Verification */}
+            {passkeyFlowStep === 'verify_passkey' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                  <p className="font-extrabold text-white flex items-center gap-2">
+                    <Fingerprint className="w-4 h-4 text-emerald-400" />
+                    <span>ফিঙ্গারপ্রিন্ট / পাসকি ভেরিফিকেশন</span>
+                  </p>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    পাবলিক হাজিরা লিংকে প্রবেশের জন্য আপনার ডিভাইসের নিবন্ধিত পাসকি বা ফিঙ্গারপ্রিন্ট স্ক্যান করে নিজেকে নিশ্চিত করুন।
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleVerifyPasskey}
+                  disabled={isPasskeyProcessing}
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs rounded-2xl transition shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isPasskeyProcessing ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>যাচাই করা হচ্ছে...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="w-4 h-4" />
+                      <span>👆 Fingerprint / Passkey Verify করুন</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* STEP 3: Launch Attendance Portal */}
+            {passkeyFlowStep === 'launch_portal' && (
+              <div className="space-y-4 text-center py-2">
+                <div className="w-16 h-16 bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 rounded-full flex items-center justify-center mx-auto animate-bounce">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-base font-extrabold text-white">ভেরিফিকেশন সফল হয়েছে!</h4>
+                  <p className="text-xs text-slate-400">
+                    আপনাকে পাবলিক হাজিরা পোর্টালে স্থানান্তরিত করা হচ্ছে...
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsPasskeyFlowOpen(false);
+                    if (onOpenPublicPortal) onOpenPublicPortal();
+                  }}
+                  className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-2xl transition shadow-lg flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  <span>পাবলিক হাজিরা পোর্টালে চলুন</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* Interactive Mobile Fingerprint Enrollment Modal */}
       {activeStudent && (

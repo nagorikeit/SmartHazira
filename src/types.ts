@@ -69,6 +69,11 @@ export interface Student {
   lastLoginTime?: string;
   lastLoginIp?: string;
   
+  // WebAuthn / Passkey Association
+  passkeyRegistered?: boolean;
+  passkeyCredentialId?: string;
+  passkeyRegisteredAt?: string;
+
   // Extended Somity Fields
   savingsBalance?: number;
   loanBalance?: number;
