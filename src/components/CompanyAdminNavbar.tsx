@@ -1,7 +1,8 @@
 import React from 'react';
 import { 
   Camera, 
-  Menu
+  Menu,
+  LogOut
 } from 'lucide-react';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { RegisteredCompany, UserRole } from '../types';
@@ -36,6 +37,7 @@ export const CompanyAdminNavbar: React.FC<CompanyAdminNavbarProps> = ({
   activeCompany,
   isFirebaseConnected = true,
   onOpenNavigationMenu,
+  onSignOut,
 }) => {
   const { terminology } = orgInfo;
 
@@ -76,16 +78,27 @@ export const CompanyAdminNavbar: React.FC<CompanyAdminNavbarProps> = ({
             </div>
           </div>
 
-          {/* Clean Menu Icon on Right */}
-          <div className="flex items-center shrink-0">
+          {/* Clean Menu and Logout Icons on Right */}
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               onClick={onOpenNavigationMenu}
-              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 border border-slate-300 hover:border-emerald-500/40 transition cursor-pointer flex items-center space-x-2 shadow-2xs"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-800 border border-slate-300 hover:border-emerald-500/40 transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
               title="মেইন মেনু - সকল মডিউল, শিফট, অডিট ও সেটিংস"
             >
               <Menu className="w-5 h-5 text-emerald-600" />
               <span className="hidden sm:inline font-bold text-xs">মেনু</span>
             </button>
+
+            {onSignOut && (
+              <button
+                onClick={onSignOut}
+                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
+                title="লগআউট / প্রস্থান করুন"
+              >
+                <LogOut className="w-4 h-4 text-rose-600" />
+                <span className="hidden sm:inline font-bold text-xs">লগআউট</span>
+              </button>
+            )}
           </div>
 
         </div>

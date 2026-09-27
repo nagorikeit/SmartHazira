@@ -254,7 +254,6 @@ export const FullScreenCameraModal: React.FC<FullScreenCameraModalProps> = ({
       {/* Top Floating Controls - Clean and Minimalist */}
       <div className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-auto">
         <div className="flex items-center space-x-2">
-
           {memberName && (
             <div className="px-3.5 py-2 rounded-full bg-slate-950/80 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-lg">
               {memberName}

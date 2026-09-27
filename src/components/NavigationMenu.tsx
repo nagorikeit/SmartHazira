@@ -275,8 +275,8 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     >
                       <Clock className="w-4 h-4 shrink-0 text-emerald-400" />
                       <div className="truncate">
-                        <p className="font-bold text-xs">শিফট সেটিংস</p>
-                        <p className="text-[10px] opacity-70">কয়টা থেকে কয়টা</p>
+                        <p className="font-bold text-xs">শিফট ও লোকেশন সেটিংস</p>
+                        <p className="text-[10px] opacity-70">কাজের সময় ও অফিস সীমানা</p>
                       </div>
                     </button>
 
@@ -368,7 +368,6 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                 </span>
 
                 <div className="space-y-1.5">
-
                   {onOpenRegisterModal && (
                     <button
                       onClick={() => handleAction(onOpenRegisterModal)}
@@ -495,13 +494,15 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                   )}
                 </div>
 
+                {/* Logout Button in Admin Section */}
                 {onSignOut && (
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800">
+                  <div className="pt-2">
                     <button
+                      type="button"
                       onClick={() => handleAction(onSignOut)}
-                      className="w-full p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 text-red-600 dark:text-red-300 rounded-2xl flex items-center justify-center space-x-2 font-bold text-xs hover:bg-red-100 dark:hover:bg-red-900/50 transition cursor-pointer shadow-xs"
+                      className="w-full p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 rounded-2xl flex items-center justify-center space-x-2.5 font-bold text-xs shadow-xs transition cursor-pointer active:scale-98"
                     >
-                      <LogOut className="w-4 h-4" />
+                      <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                       <span>লগআউট / প্রস্থান করুন</span>
                     </button>
                   </div>
@@ -512,9 +513,21 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
 
         </div>
 
-        {/* Drawer Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-center text-xs text-slate-400">
-          {isStudentRole ? 'স্মার্ট হাজিরা AI • কর্মী এক্সেস পোর্টাল' : 'স্মার্ট হাজিরা AI • প্রতিটি অপশন শুধুমাত্র একবার তালিকাভুক্ত'}
+        {/* Drawer Footer with Universal Logout Button */}
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col gap-2.5">
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={() => handleAction(onSignOut)}
+              className="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl flex items-center justify-center space-x-2 font-bold text-xs shadow-md shadow-rose-600/20 transition cursor-pointer active:scale-98"
+            >
+              <LogOut className="w-4 h-4 text-white shrink-0" />
+              <span>লগআউট (Log Out)</span>
+            </button>
+          )}
+          <div className="text-center text-xs text-slate-400">
+            {isStudentRole ? 'স্মার্ট হাজিরা AI • কর্মী এক্সেস পোর্টাল' : 'স্মার্ট হাজিরা AI • প্রতিষ্ঠান ব্যবস্থাপনা'}
+          </div>
         </div>
 
       </div>
