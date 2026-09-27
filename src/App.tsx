@@ -1036,6 +1036,7 @@ export default function App() {
               onAttendancePunch={(record) => {
                 handleAttendanceUpdated(record);
               }}
+              onOpenPublicPortal={() => setIsPublicPortalOpen(true)}
             />
           )}
 
