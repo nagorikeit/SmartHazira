@@ -508,7 +508,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
                 <th className="p-3 pl-4 whitespace-nowrap min-w-[220px]">প্রোফাইল ফটো ও নাম</th>
-                <th className="p-3 whitespace-nowrap min-w-[110px]">পদবী</th>
                 <th className="p-3 whitespace-nowrap min-w-[180px]">ডিউটি শিফট (নির্বাচন করুন)</th>
                 <th className="p-3 whitespace-nowrap min-w-[130px]">প্রবেশ করার সময়</th>
                 <th className="p-3 whitespace-nowrap min-w-[140px]">বাহির হওয়ার সময়</th>
@@ -582,13 +581,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           </div>
                         </div>
                       </div>
-                    </td>
-
-                    {/* 2. Designation (পদবী) */}
-                    <td className="p-3 whitespace-nowrap">
-                      <span className="inline-block px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px] border border-slate-200/80 dark:border-slate-700">
-                        {student.designation || student.className || 'সদস্য'}
-                      </span>
                     </td>
 
                     {/* 3. Shift (শিফট নির্বাচন ও প্রদর্শন) */}
