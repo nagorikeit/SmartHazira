@@ -17,6 +17,7 @@ import {
 import { Student } from '../types';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { isFaceActuallyRegistered, isFingerprintActuallyRegistered } from '../utils/faceMatching';
+import { extractFaceBiometrics } from '../utils/faceBiometrics';
 
 interface BiometricManagementModalProps {
   isOpen: boolean;
@@ -170,7 +171,31 @@ export const BiometricManagementModal: React.FC<BiometricManagementModalProps> =
     setFaceImage(liveCapturedSnapshot);
     setFaceRegistered(true);
 
-    setTimeout(() => {
+    // Extract biometric feature descriptor and alphanumeric code
+    extractFaceBiometrics(liveCapturedSnapshot).then((biometrics) => {
+      playSound(920, 'sine');
+      const updatedStudent: Student = {
+        ...student,
+        photoUrl: liveCapturedSnapshot,
+        faceImage: liveCapturedSnapshot,
+        faceRegistered: true,
+        faceDescriptor: biometrics.descriptor,
+        faceBiometricCode: biometrics.biometricCode,
+      };
+
+      // Save directly to Firestore + LocalStorage
+      onSaveBiometrics(updatedStudent);
+      setIsCapturingAndSaving(false);
+      setSavedSuccess(true);
+      setStatusMessage(`🎉 ফেস স্ক্যান সফল! বায়োমেট্রিক কোড: ${biometrics.biometricCode}`);
+
+      setTimeout(() => {
+        setSavedSuccess(false);
+        stopCamera();
+        onClose();
+      }, 1400);
+    }).catch((err) => {
+      console.warn("Biometric extraction error, saving with fallback:", err);
       playSound(920, 'sine');
       const updatedStudent: Student = {
         ...student,
@@ -178,19 +203,16 @@ export const BiometricManagementModal: React.FC<BiometricManagementModalProps> =
         faceImage: liveCapturedSnapshot,
         faceRegistered: true,
       };
-
-      // Save directly to Firestore + LocalStorage
       onSaveBiometrics(updatedStudent);
       setIsCapturingAndSaving(false);
       setSavedSuccess(true);
       setStatusMessage('🎉 ফেস সফলভাবে স্ক্যান ও ডাটাবেজে যুক্ত হয়েছে!');
-
       setTimeout(() => {
         setSavedSuccess(false);
         stopCamera();
         onClose();
       }, 1400);
-    }, 600);
+    });
   };
 
   // Remove Face Data
@@ -203,6 +225,8 @@ export const BiometricManagementModal: React.FC<BiometricManagementModalProps> =
         ...student,
         faceRegistered: false,
         faceImage: undefined,
+        faceDescriptor: undefined,
+        faceBiometricCode: undefined,
       };
 
       onSaveBiometrics(updatedStudent);

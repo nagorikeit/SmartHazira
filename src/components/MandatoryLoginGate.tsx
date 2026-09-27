@@ -75,6 +75,7 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
   const [isForgotModalOpen, setIsForgotModalOpen] = useState<boolean>(false);
   const [recoveryInput, setRecoveryInput] = useState<string>('');
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [recoveredCompany, setRecoveredCompany] = useState<RegisteredCompany | null>(null);
 
   // Helper to generate sequential Company Serial ID (e.g. CMP-1001, CMP-1002...)
   const generateSerialCompanyId = (): string => {
@@ -620,8 +621,10 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                 );
 
                 if (matchedCmp) {
-                  setRecoveryMessage(`✅ "${matchedCmp.nameBangla}" কোম্পানির ইমেইলে (${matchedCmp.contactEmail}) পাসওয়ার্ড পুনরুদ্ধারের বার্তা ও বর্তমান পাসওয়ার্ড প্রেরণের সংকেত পাঠানো হয়েছে।`);
+                  setRecoveredCompany(matchedCmp);
+                  setRecoveryMessage(`✅ "${matchedCmp.nameBangla}" কোম্পানির লগইন তথ্য নিচে প্রদর্শিত হলো:`);
                 } else {
+                  setRecoveredCompany(null);
                   setRecoveryMessage(`⚠️ "${recoveryInput}" সম্পর্কিত কোনো কোম্পানি পাওয়া যায়নি। অনুগ্রহ করে নিবন্ধিত ইমেইল বা আইডি দিন।`);
                 }
               }}
@@ -641,8 +644,48 @@ export const MandatoryLoginGate: React.FC<MandatoryLoginGateProps> = ({
                 />
               </div>
 
-              {recoveryMessage && (
-                <div className={`p-3 rounded-2xl text-xs font-bold ${recoveryMessage.startsWith('✅') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
+              {recoveredCompany && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2 text-xs text-slate-800">
+                  <div className="font-bold text-emerald-900 flex items-center justify-between">
+                    <span>🏢 {recoveredCompany.nameBangla}</span>
+                    <span className="text-[10px] px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-md font-mono">
+                      {recoveredCompany.id}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-white/80 p-2 rounded-xl border border-emerald-200">
+                    <div>
+                      <span className="text-slate-500 block">লগইন কোড / আইডি:</span>
+                      <span className="font-bold font-mono text-slate-900">{recoveredCompany.code}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">এডমিন পাসওয়ার্ড:</span>
+                      <span className="font-bold font-mono text-emerald-700">{recoveredCompany.password || '1234'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const mockUser = {
+                        uid: `comp-${recoveredCompany.id}`,
+                        email: recoveredCompany.contactEmail || 'admin@smarthazira.ai',
+                        displayName: `${recoveredCompany.nameBangla} (${recoveredCompany.adminName || 'এডমিন'})`,
+                        photoURL: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(recoveredCompany.nameBangla)}`,
+                      } as unknown as User;
+                      onSetCurrentUser(mockUser);
+                      onSelectCompany(recoveredCompany);
+                      onRoleChange('teacher');
+                      setIsForgotModalOpen(false);
+                    }}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs transition cursor-pointer shadow-sm flex items-center justify-center space-x-1.5"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>সরাসরি এই ড্যাশবোর্ডে প্রবেশ করুন</span>
+                  </button>
+                </div>
+              )}
+
+              {recoveryMessage && !recoveredCompany && (
+                <div className="p-3 rounded-2xl text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
                   {recoveryMessage}
                 </div>
               )}

@@ -1,5 +1,5 @@
-import { Student, ClassSubject, AttendanceRecord, AttendanceStatus, AttendanceMethod, DailyClassSummary, AttendancePunch } from '../types';
-import { INITIAL_CLASSES, INITIAL_STUDENTS, generateInitialAttendanceRecords } from '../data/mockData';
+import { Student, ClassSubject, AttendanceRecord, AttendanceStatus, AttendanceMethod, DailyClassSummary, AttendancePunch, RegisteredCompany } from '../types';
+import { INITIAL_CLASSES, INITIAL_STUDENTS, generateInitialAttendanceRecords, MOCK_COMPANIES } from '../data/mockData';
 import { calculateStayDuration } from './timeUtils';
 import { getStoredScheduleSettings, getCurrentActiveShift } from './scheduleConfig';
 
@@ -8,6 +8,22 @@ const KEYS = {
   STUDENTS: 'smart_hazira_students_v2',
   ATTENDANCE: 'smart_hazira_attendance_v2',
   SETTINGS: 'smart_hazira_settings_v2',
+  COMPANIES: 'smart_hazira_companies_v2',
+};
+
+export const getStoredCompanies = (): RegisteredCompany[] => {
+  const data = localStorage.getItem(KEYS.COMPANIES);
+  if (!data) return MOCK_COMPANIES;
+  try {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : MOCK_COMPANIES;
+  } catch {
+    return MOCK_COMPANIES;
+  }
+};
+
+export const saveStoredCompanies = (companies: RegisteredCompany[]) => {
+  localStorage.setItem(KEYS.COMPANIES, JSON.stringify(companies));
 };
 
 export const getStoredClasses = (): ClassSubject[] => {

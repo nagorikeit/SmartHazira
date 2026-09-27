@@ -529,10 +529,17 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                       {/* Face Biometric Status */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         {hasFace ? (
-                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" title="ফেস সক্রিয়">
-                            <Camera className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>ফেস সক্রিয়</span>
-                          </span>
+                          <div className="space-y-0.5">
+                            <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800" title="ফেস সক্রিয়">
+                              <Camera className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>ফেস সক্রিয়</span>
+                            </span>
+                            {student.faceBiometricCode && (
+                              <p className="text-[9px] font-mono text-slate-400 pl-1">
+                                {student.faceBiometricCode}
+                              </p>
+                            )}
+                          </div>
                         ) : (
                           <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800" title="ক্যামেরা দিয়ে ফেস ছবি নেওয়া বাকি">
                             <span>ফেস বাকি</span>

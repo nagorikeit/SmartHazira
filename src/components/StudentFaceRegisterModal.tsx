@@ -3,6 +3,7 @@ import { Student, ClassSubject } from '../types';
 import { addStudent } from '../utils/storage';
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { FullScreenCameraModal } from './FullScreenCameraModal';
+import { extractFaceBiometrics } from '../utils/faceBiometrics';
 import {
   UserPlus,
   Camera,
@@ -57,6 +58,8 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
 
   // Biometrics State
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
+  const [faceDescriptor, setFaceDescriptor] = useState<number[] | undefined>(undefined);
+  const [faceBiometricCode, setFaceBiometricCode] = useState<string | undefined>(undefined);
   const [isFullScreenCameraOpen, setIsFullScreenCameraOpen] = useState(false);
 
   const [fingerprintRegistered, setFingerprintRegistered] = useState(false);
@@ -67,12 +70,26 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
     setClassId(selectedClassId);
   }, [selectedClassId]);
 
+  const processCapturedFace = async (photoUrl: string) => {
+    setCapturedPhotoUrl(photoUrl);
+    try {
+      const biometrics = await extractFaceBiometrics(photoUrl);
+      if (biometrics && biometrics.descriptor) {
+        setFaceDescriptor(biometrics.descriptor);
+        setFaceBiometricCode(biometrics.biometricCode);
+      }
+    } catch (err) {
+      console.warn('Biometric feature extraction error:', err);
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setCapturedPhotoUrl(event.target?.result as string);
+        const result = event.target?.result as string;
+        processCapturedFace(result);
       };
       reader.readAsDataURL(file);
     }
@@ -106,6 +123,8 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
       photoUrl: capturedPhotoUrl || '',
       faceImage: capturedPhotoUrl || '',
       faceRegistered: Boolean(capturedPhotoUrl && capturedPhotoUrl.length > 50),
+      faceDescriptor: faceDescriptor,
+      faceBiometricCode: faceBiometricCode,
       fingerprintRegistered,
       fingerprintFingerName: fingerprintRegistered ? fingerprintName : undefined,
       gender,
@@ -129,6 +148,8 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
     setEmail('');
     setMonthlySalary('');
     setCapturedPhotoUrl(null);
+    setFaceDescriptor(undefined);
+    setFaceBiometricCode(undefined);
     setFingerprintRegistered(false);
     onClose();
   };
@@ -359,9 +380,15 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
                           <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                             ছবি সংগ্রহ সম্পন্ন
                           </p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                            হাজিরা শনাক্তকরণের জন্য প্রস্তুত
-                          </p>
+                          {faceBiometricCode ? (
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold truncate">
+                              কোড: {faceBiometricCode}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                              হাজিরা শনাক্তকরণের জন্য প্রস্তুত
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -545,7 +572,7 @@ export const StudentFaceRegisterModal: React.FC<StudentFaceRegisterModalProps> =
         onClose={() => setIsFullScreenCameraOpen(false)}
         memberName={nameBangla}
         onCapture={(photoDataUrl) => {
-          setCapturedPhotoUrl(photoDataUrl);
+          processCapturedFace(photoDataUrl);
         }}
       />
     </>

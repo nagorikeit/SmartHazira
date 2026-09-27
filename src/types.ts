@@ -36,6 +36,7 @@ export interface Student {
   faceImage?: string;
   faceRegistered: boolean;
   faceDescriptor?: number[];
+  faceBiometricCode?: string;
   fingerprintRegistered?: boolean;
   fingerprintTemplate?: string;
   fingerprintFingerName?: string;

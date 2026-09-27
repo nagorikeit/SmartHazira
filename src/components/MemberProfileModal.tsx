@@ -3,6 +3,7 @@ import { Student, ClassSubject, AttendanceRecord, OrganizationScheduleSettings }
 import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { isFaceActuallyRegistered, speakBengaliAttendance } from '../utils/faceMatching';
 import { getStoredScheduleSettings } from '../utils/scheduleConfig';
+import { extractFaceBiometrics } from '../utils/faceBiometrics';
 import {
   X,
   Camera,
@@ -223,30 +224,55 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
           }
         }
 
-        // Auto save to database
+        // Auto save to database with biometric descriptor and code
         const selectedClass = classes.find(c => c.id === classId);
-        const updatedStudent: Student = {
-          ...student,
-          nameBangla: nameBangla.trim(),
-          name: nameBangla.trim(),
-          nameEnglish: nameEnglish.trim() || undefined,
-          roll: roll.trim(),
-          classId: classId || student.classId,
-          className: selectedClass ? selectedClass.classNameBangla : student.className,
-          designation: designation.trim() || undefined,
-          department: department.trim() || undefined,
-          guardianPhone: phone.trim() || '01700000000',
-          parentPhone: phone.trim() || undefined,
-          email: email.trim() || undefined,
-          preferredShiftId: shiftId || undefined,
-          photoUrl: capturedDataUrl,
-          faceImage: capturedDataUrl,
-          faceRegistered: true
-        };
-
-        onSaveMember(updatedStudent);
-        setSaveSuccessMessage('🎉 ফেস ছবি ও ডাটা সফলভাবে মোবাইল থেকে সংরক্ষিত হয়েছে!');
-        setTimeout(() => setSaveSuccessMessage(null), 4000);
+        extractFaceBiometrics(capturedDataUrl).then((bio) => {
+          const updatedStudent: Student = {
+            ...student,
+            nameBangla: nameBangla.trim(),
+            name: nameBangla.trim(),
+            nameEnglish: nameEnglish.trim() || undefined,
+            roll: roll.trim(),
+            classId: classId || student.classId,
+            className: selectedClass ? selectedClass.classNameBangla : student.className,
+            designation: designation.trim() || undefined,
+            department: department.trim() || undefined,
+            guardianPhone: phone.trim() || '01700000000',
+            parentPhone: phone.trim() || undefined,
+            email: email.trim() || undefined,
+            preferredShiftId: shiftId || undefined,
+            photoUrl: capturedDataUrl,
+            faceImage: capturedDataUrl,
+            faceRegistered: true,
+            faceDescriptor: bio.descriptor,
+            faceBiometricCode: bio.biometricCode,
+          };
+          onSaveMember(updatedStudent);
+          setSaveSuccessMessage(`🎉 ফেস ছবি ও বায়োমেট্রিক কোড [${bio.biometricCode}] সফলভাবে সংরক্ষিত হয়েছে!`);
+          setTimeout(() => setSaveSuccessMessage(null), 4000);
+        }).catch(() => {
+          const updatedStudent: Student = {
+            ...student,
+            nameBangla: nameBangla.trim(),
+            name: nameBangla.trim(),
+            nameEnglish: nameEnglish.trim() || undefined,
+            roll: roll.trim(),
+            classId: classId || student.classId,
+            className: selectedClass ? selectedClass.classNameBangla : student.className,
+            designation: designation.trim() || undefined,
+            department: department.trim() || undefined,
+            guardianPhone: phone.trim() || '01700000000',
+            parentPhone: phone.trim() || undefined,
+            email: email.trim() || undefined,
+            preferredShiftId: shiftId || undefined,
+            photoUrl: capturedDataUrl,
+            faceImage: capturedDataUrl,
+            faceRegistered: true,
+          };
+          onSaveMember(updatedStudent);
+          setSaveSuccessMessage('🎉 ফেস ছবি ও ডাটা সফলভাবে মোবাইল থেকে সংরক্ষিত হয়েছে!');
+          setTimeout(() => setSaveSuccessMessage(null), 4000);
+        });
       }
     } catch (e) {
       console.error('Face capture error:', e);

@@ -1060,9 +1060,15 @@ export const FaceScannerModal: React.FC<FaceScannerModalProps> = ({
                     {lastMatchedStudent.nameBangla}
                   </h3>
                   
-                  <p className={`text-sm font-semibold mb-4 ${matchDetails.isAlreadyAttended ? 'text-amber-300' : 'text-emerald-400'}`}>
+                  <p className={`text-sm font-semibold ${lastMatchedStudent.faceBiometricCode ? 'mb-1.5' : 'mb-4'} ${matchDetails.isAlreadyAttended ? 'text-amber-300' : 'text-emerald-400'}`}>
                     {terminology.idLabel}: {lastMatchedStudent.roll}
                   </p>
+
+                  {lastMatchedStudent.faceBiometricCode && (
+                    <div className="inline-block px-3 py-0.5 bg-emerald-950/80 border border-emerald-500/40 rounded-full text-[10px] font-mono text-emerald-300 font-bold mb-4 shadow">
+                      বায়োমেট্রিক কোড: {lastMatchedStudent.faceBiometricCode}
+                    </div>
+                  )}
 
                   {/* Attendance Info Grid */}
                   <div className="grid grid-cols-3 gap-2 bg-slate-950/70 p-3 rounded-2xl border border-slate-800 text-xs mb-4">

@@ -1,4 +1,32 @@
 import { Student, CameraScanResult, AttendanceStatus } from '../types';
+import { extractFaceBiometrics, compareFaceDescriptors, generateBiometricCodeString } from './faceBiometrics';
+
+// Cache in-memory descriptors for students whose photos are already loaded
+const studentDescriptorCache = new Map<string, number[]>();
+
+export async function getOrComputeStudentDescriptor(student: Student): Promise<number[] | null> {
+  if (student.faceDescriptor && student.faceDescriptor.length > 0) {
+    return student.faceDescriptor;
+  }
+  if (studentDescriptorCache.has(student.id)) {
+    return studentDescriptorCache.get(student.id)!;
+  }
+  const photo = student.faceImage || student.photoUrl;
+  if (!photo || photo.length < 50 || photo.includes('<svg')) return null;
+
+  try {
+    const biometrics = await extractFaceBiometrics(photo);
+    if (biometrics && biometrics.descriptor && biometrics.descriptor.length > 0) {
+      studentDescriptorCache.set(student.id, biometrics.descriptor);
+      student.faceDescriptor = biometrics.descriptor;
+      student.faceBiometricCode = biometrics.biometricCode;
+      return biometrics.descriptor;
+    }
+  } catch (err) {
+    console.warn(`Could not compute descriptor for student ${student.id}:`, err);
+  }
+  return null;
+}
 
 /**
  * Compares live canvas or snapshot image against a specific student's registered photo.
@@ -78,6 +106,28 @@ export async function compareFaceWithStudent(
     }
   } catch (err) {
     console.warn("Server AI verification error, proceeding with Client-Side verification:", err);
+  }
+
+  // Primary Biometric Code matching
+  if (registeredPhoto && liveImageBase64) {
+    try {
+      const studentDesc = await getOrComputeStudentDescriptor(student);
+      const liveBio = await extractFaceBiometrics(liveImageBase64);
+      if (studentDesc && liveBio && liveBio.descriptor) {
+        const descSim = compareFaceDescriptors(liveBio.descriptor, studentDesc);
+        if (descSim >= 0.76) {
+          return {
+            matchedStudent: student,
+            confidence: Math.min(0.99, Math.round(descSim * 100) / 100),
+            status: 'Present',
+            message: `${student.nameBangla} (আইডি: ${student.roll}) - বায়োমেট্রিক কোড ম্যাচ সফল!`,
+            capturedSnapshot: liveImageBase64,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("Client descriptor comparison fallback:", e);
+    }
   }
 
   // Fallback client-side matching algorithm comparing real image histograms
@@ -321,14 +371,51 @@ export async function identifyStudentFromCamera(
     const singleStudent = pool[0];
     return {
       matchedStudent: singleStudent,
-      confidence: 0.94,
+      confidence: 0.95,
       status: 'Present',
       message: `${singleStudent.nameBangla} (আইডি: ${singleStudent.roll}) - সনাক্তকরণ সফল!`,
       capturedSnapshot: snapshot,
     };
   }
 
-  // 1. Primary Method: AI Vision multi-candidate matching on the server
+  // 1. Biometric Feature Vector & Code Matching (Direct Code-to-Code Matching)
+  if (snapshot && pool.length > 0) {
+    try {
+      const liveBiometrics = await extractFaceBiometrics(snapshot);
+      if (liveBiometrics && liveBiometrics.descriptor && liveBiometrics.descriptor.length > 0) {
+        let bestCodeMatch: Student | null = null;
+        let highestSim = 0;
+
+        for (const candidate of pool) {
+          const candDesc = await getOrComputeStudentDescriptor(candidate);
+          if (!candDesc || candDesc.length === 0) continue;
+
+          const sim = compareFaceDescriptors(liveBiometrics.descriptor, candDesc);
+          if (sim > highestSim) {
+            highestSim = sim;
+            bestCodeMatch = candidate;
+          }
+        }
+
+        // High-confidence Biometric Code Match (>= 0.76)
+        if (bestCodeMatch && highestSim >= 0.76) {
+          const confidence = Math.min(0.99, Math.round(highestSim * 100) / 100);
+          const bioCodeDisplay = bestCodeMatch.faceBiometricCode || generateBiometricCodeString(bestCodeMatch.faceDescriptor || []);
+          return {
+            matchedStudent: bestCodeMatch,
+            confidence: Math.max(0.92, confidence),
+            status: 'Present',
+            message: `${bestCodeMatch.nameBangla} (আইডি: ${bestCodeMatch.roll}) - বায়োমেট্রিক কোড ম্যাচিং সফল [${bioCodeDisplay}]!`,
+            capturedSnapshot: snapshot,
+          };
+        }
+      }
+    } catch (bioErr) {
+      console.warn("Biometric descriptor matching warning:", bioErr);
+    }
+  }
+
+  // 2. Secondary Method: AI Vision multi-candidate matching on the server
   try {
     const candidatesPayload = pool.map(s => ({
       id: s.id,

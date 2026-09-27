@@ -17,6 +17,7 @@
         "status": { "type": "string", "enum": ["Active", "Pending", "Suspended"] },
         "registeredDate": { "type": "string", "maxLength": 50 },
         "adminName": { "type": "string", "maxLength": 100 },
+        "password": { "type": "string", "maxLength": 128 },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
@@ -36,7 +37,10 @@
         "companyId": { "type": "string", "maxLength": 128 },
         "companyName": { "type": "string", "maxLength": 200 },
         "photoUrl": { "type": "string", "maxLength": 5000 },
+        "faceImage": { "type": "string" },
         "faceRegistered": { "type": "boolean" },
+        "faceDescriptor": { "type": "array" },
+        "faceBiometricCode": { "type": "string", "maxLength": 100 },
         "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
         "guardianPhone": { "type": "string", "maxLength": 50 },
         "email": { "type": "string", "maxLength": 100 },

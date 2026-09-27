@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserRole, ClassSubject, Student, AttendanceRecord, AuditLogItem, RegisteredCompany, OrganizationScheduleSettings } from './types';
-import { getStoredClasses, getStoredStudents, getStoredAttendance, getDailySummaryForClass } from './utils/storage';
+import { getStoredClasses, getStoredStudents, getStoredAttendance, getDailySummaryForClass, getStoredCompanies, saveStoredCompanies } from './utils/storage';
 import { OrgCategoryKey, ORG_CATEGORIES, getStoredOrgCategory, saveOrgCategory } from './utils/organizationConfig';
 import { getStoredScheduleSettings, saveScheduleSettings, getCurrentActiveShift } from './utils/scheduleConfig';
 import { ScheduleSettingsModal } from './components/ScheduleSettingsModal';
@@ -129,7 +129,9 @@ export default function App() {
 
   // System datasets
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(MOCK_AUDIT_LOGS);
-  const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>(MOCK_COMPANIES);
+  const [registeredCompanies, setRegisteredCompanies] = useState<RegisteredCompany[]>(() => {
+    return getStoredCompanies();
+  });
   const [activeCompany, setActiveCompany] = useState<RegisteredCompany | null>(() => {
     try {
       const saved = localStorage.getItem('smart_hazira_active_company_v1');
@@ -191,7 +193,11 @@ export default function App() {
   };
 
   const handleAddCompany = (newCompany: RegisteredCompany) => {
-    setRegisteredCompanies(prev => [newCompany, ...prev]);
+    setRegisteredCompanies(prev => {
+      const updated = [newCompany, ...prev.filter(c => c.id !== newCompany.id)];
+      saveStoredCompanies(updated);
+      return updated;
+    });
     
     // CRITICAL: Only set as active company if registering from public login (company onboarding)
     // If Super Admin adds a company from SuperAdminDashboard, DO NOT switch active company globally!
@@ -221,6 +227,7 @@ export default function App() {
   const handleUpdateCompanyStatus = (companyId: string, newStatus: 'Active' | 'Pending' | 'Suspended') => {
     setRegisteredCompanies(prev => {
       const updated = prev.map(c => c.id === companyId ? { ...c, status: newStatus } : c);
+      saveStoredCompanies(updated);
       const targetCompany = updated.find(c => c.id === companyId);
       if (targetCompany) {
         saveCompanyToFirestore(targetCompany);
@@ -267,7 +274,10 @@ export default function App() {
       companyId: companyId,
       companyName: company?.nameBangla,
       photoUrl: memberData.photoUrl || memberData.faceImage || `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%2310b981"/><circle cx="100" cy="80" r="42" fill="%23fce7f3"/><text x="100" y="192" font-size="12" font-family="sans-serif" text-anchor="middle" fill="white">${encodeURIComponent(memberData.nameBangla || 'সদস্য')}</text></svg>`,
+      faceImage: memberData.faceImage || memberData.photoUrl || undefined,
       faceRegistered: Boolean(memberData.faceImage || (memberData.photoUrl && !memberData.photoUrl.includes('data:image/svg+xml') && !memberData.photoUrl.includes('placeholder'))),
+      faceDescriptor: memberData.faceDescriptor,
+      faceBiometricCode: memberData.faceBiometricCode,
       gender: 'Male',
       guardianPhone: memberData.guardianPhone || '01700000000',
       attendanceStreak: 1,
@@ -1003,7 +1013,11 @@ export default function App() {
             )
           ) : (
             <StudentDashboard
-              students={companyStudents.length > 0 ? companyStudents : students}
+              students={
+                selectedLoggedInStudentId
+                  ? (students.some(s => s.id === selectedLoggedInStudentId) ? students : (companyStudents.length > 0 ? companyStudents : students))
+                  : (companyStudents.length > 0 ? companyStudents : students)
+              }
               attendanceRecords={companyAttendanceRecords}
               onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
               orgInfo={orgInfo}
@@ -1032,7 +1046,7 @@ export default function App() {
       <FaceScannerModal
         isOpen={isFaceScannerOpen}
         onClose={() => setIsFaceScannerOpen(false)}
-        students={companyStudents}
+        students={companyStudents.length > 0 ? companyStudents : students}
         selectedClassId={selectedClassId}
         selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
         onAttendanceUpdated={handleAttendanceUpdated}
