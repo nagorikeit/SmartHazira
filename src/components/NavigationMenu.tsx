@@ -325,19 +325,24 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
 
                   {onOpenAttendanceLinkModal && (
                     <button
-                      onClick={() => handleAction(onOpenAttendanceLinkModal)}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer text-left"
+                      onClick={() => {
+                        const currentUrl = window.location.origin + window.location.pathname;
+                        const attendanceLink = `${currentUrl}?mode=attendance&geo=1`;
+                        window.open(attendanceLink, '_blank');
+                        onClose();
+                      }}
+                      className="w-full p-3 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl flex items-center justify-between hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition cursor-pointer text-left"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                        <div className="p-2 bg-indigo-500 text-white rounded-xl shadow-xs">
                           <QrCode className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="font-bold text-xs text-slate-900 dark:text-slate-100">পাবলিক হাজিরা কিউআর ও পোর্টাল</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">কর্মীদের নিজের মোবাইলে হাজিরা দেওয়ার লিংক</p>
+                          <p className="font-bold text-xs text-indigo-950 dark:text-indigo-200">পাবলিক হাজিরা লিংক (নতুন উইন্ডো)</p>
+                          <p className="text-[11px] text-indigo-600 dark:text-indigo-400">নতুন ট্যাবে পোর্টাল ওপেন করার লিংক</p>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                      <ChevronRight className="w-4 h-4 text-indigo-400" />
                     </button>
                   )}
 
