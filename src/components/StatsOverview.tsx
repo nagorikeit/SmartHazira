@@ -11,6 +11,12 @@ interface StatsOverviewProps {
   selectedClassName: string;
   autoSaved: boolean;
   orgInfo: OrgCategoryInfo;
+  activeShift?: {
+    nameBangla: string;
+    startTime: string;
+    endTime: string;
+    code?: string;
+  };
 }
 
 export const StatsOverview: React.FC<StatsOverviewProps> = ({
@@ -20,6 +26,7 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
   absentCount,
   attendancePercentage,
   orgInfo,
+  activeShift,
 }) => {
   const { terminology } = orgInfo;
 
@@ -84,14 +91,19 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
           </div>
         </div>
 
-        {/* Percentage Card */}
+        {/* Percentage Card with Active Shift Status */}
         <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-emerald-600 to-teal-700 p-4 rounded-2xl text-white shadow-md shadow-emerald-600/10 flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-100">উপস্থিতির হার</span>
-            <TrendingUp className="w-4 h-4 text-emerald-200" />
-          </div>
-          <div className="my-1">
-            <div className="text-2xl font-black">{attendancePercentage}%</div>
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-emerald-100 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
+                <span>উপস্থিতির হার</span>
+              </span>
+              <TrendingUp className="w-4 h-4 text-emerald-200" />
+            </div>
+            <div className="mt-1 flex items-baseline justify-between">
+              <span className="text-2xl font-black">{attendancePercentage}%</span>
+            </div>
             <div className="w-full bg-emerald-950/40 h-2 rounded-full overflow-hidden mt-1.5 border border-emerald-400/20">
               <div
                 className="bg-emerald-300 h-full transition-all duration-500 rounded-full"
@@ -99,6 +111,15 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
               />
             </div>
           </div>
+
+          {activeShift && (
+            <div className="mt-2.5 pt-2 border-t border-emerald-500/30 flex items-center justify-between text-[11px] text-emerald-100">
+              <span className="opacity-95 font-medium">সক্রিয় শিফট:</span>
+              <span className="font-bold bg-emerald-800/70 px-2 py-0.5 rounded-md border border-emerald-400/30 text-emerald-200 truncate max-w-[130px]" title={`${activeShift.nameBangla} (${activeShift.startTime} - ${activeShift.endTime})`}>
+                {activeShift.nameBangla}
+              </span>
+            </div>
+          )}
         </div>
 
       </div>

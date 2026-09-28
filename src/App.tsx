@@ -37,6 +37,7 @@ import { MemberProfileModal } from './components/MemberProfileModal';
 import { CompanyProfileModal } from './components/CompanyProfileModal';
 import { AttendanceLinkModal } from './components/AttendanceLinkModal';
 import { PublicAttendancePortal } from './components/PublicAttendancePortal';
+import { UserAttendancePortal } from './components/UserAttendancePortal';
 import { BiometricManagementModal } from './components/BiometricManagementModal';
 import { EditMemberModal } from './components/EditMemberModal';
 import { ScheduleSettingsView } from './components/ScheduleSettingsView';
@@ -347,6 +348,14 @@ export default function App() {
       return urlParams.get('geo') === '1';
     } catch {
       return false;
+    }
+  });
+  const [publicPortalMode, setPublicPortalMode] = useState<'public' | 'user'>(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('portal_mode') === 'user' ? 'user' : 'public';
+    } catch {
+      return 'public';
     }
   });
   const [isBiometricsModalOpen, setIsBiometricsModalOpen] = useState<boolean>(false);
@@ -830,17 +839,48 @@ export default function App() {
 
   // If opened in Public Self-Service Attendance Portal Mode, render isolated portal without admin credentials
   if (isPublicPortalOpen) {
+    const currentStudent = companyStudents.find(s => s.id === selectedLoggedInStudentId || s.email === currentUser?.email || s.phone === currentUser?.phone) || companyStudents[0];
+
+    if (publicPortalMode === 'user' && currentStudent) {
+      return (
+        <UserAttendancePortal
+          student={currentStudent}
+          classes={classes}
+          onExitPortal={() => {
+            setIsPublicPortalOpen(false);
+            setPublicPortalMode('public');
+            try {
+              window.history.replaceState({}, '', window.location.pathname);
+            } catch {}
+          }}
+          onAttendanceUpdated={handleAttendanceUpdated}
+          soundEnabled={soundEnabled}
+          orgInfo={orgInfo}
+          companyName={resolvedActiveCompany?.nameBangla || activeCompany?.nameBangla || 'স্মার্ট হাজিরা AI'}
+          enforceGeofence={publicPortalGeofence}
+          scheduleSettings={scheduleSettings}
+          onUpdateStudent={(updatedStudent) => {
+            setStudents(prev => {
+              const updated = prev.map(s => s.id === updatedStudent.id ? updatedStudent : s);
+              saveStudents(updated);
+              return updated;
+            });
+            saveMemberToFirestore(updatedStudent);
+          }}
+        />
+      );
+    }
+
     return (
       <PublicAttendancePortal
         classes={classes}
         students={companyStudents}
         onExitPortal={() => {
           setIsPublicPortalOpen(false);
+          setPublicPortalMode('public');
           try {
             window.history.replaceState({}, '', window.location.pathname);
-          } catch {
-            // fallback
-          }
+          } catch {}
         }}
         onAttendanceUpdated={handleAttendanceUpdated}
         soundEnabled={soundEnabled}
@@ -939,6 +979,7 @@ export default function App() {
               selectedClassName={currentClass ? currentClass.classNameBangla : orgInfo.terminology.groupLabel}
               autoSaved={dailySummary.autoSaved}
               orgInfo={orgInfo}
+              activeShift={getCurrentActiveShift(scheduleSettings, new Date())}
             />
           )}
 
@@ -1025,6 +1066,10 @@ export default function App() {
               scheduleSettings={scheduleSettings}
               onSignOut={handleGoogleSignOut}
               companyName={resolvedActiveCompany?.nameBangla}
+              onOpenPublicPortal={() => {
+                setIsPublicPortalOpen(true);
+                setPublicPortalMode('user');
+              }}
               onUpdateStudent={(updatedStudent) => {
                 setStudents(prev => {
                   const updated = prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s));
@@ -1036,7 +1081,6 @@ export default function App() {
               onAttendancePunch={(record) => {
                 handleAttendanceUpdated(record);
               }}
-              onOpenPublicPortal={() => setIsPublicPortalOpen(true)}
             />
           )}
 
@@ -1263,11 +1307,20 @@ export default function App() {
           activeTab={activeTab}
           onSelectTab={(tab) => setActiveTab(tab as any)}
           orgInfo={orgInfo}
-          onOpenFaceScanner={() => setIsFaceScannerOpen(true)}
+          onOpenFaceScanner={() => {
+            if (currentRole === 'student') {
+              setIsPublicPortalOpen(true);
+              setPublicPortalMode('user');
+            } else {
+              window.open(window.location.origin + window.location.pathname + '?mode=attendance&portal=public', '_blank');
+            }
+          }}
           onOpenNavMenu={() => setIsNavMenuOpen(true)}
           onOpenProfileModal={() => setIsCompanyProfileModalOpen(true)}
           onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
-          onOpenAttendanceLinkModal={() => setIsAttendanceLinkModalOpen(true)}
+          onOpenAttendanceLinkModal={() => {
+            window.open(window.location.origin + window.location.pathname + '?mode=attendance&portal=public', '_blank');
+          }}
           onOpenSmartIdCard={() => setIsSmartIdCardOpen(true)}
         />
       )}

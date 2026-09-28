@@ -6,7 +6,9 @@ import { getStoredScheduleSettings, calculateDistanceMeters } from '../utils/sch
 import { 
   checkMobileBiometricSupport, 
   triggerMobileFingerprintPrompt, 
-  BiometricCapability 
+  BiometricCapability,
+  registerWebAuthnPasskey,
+  verifyWebAuthnPasskey
 } from '../utils/mobileBiometrics';
 import { 
   Camera, 
@@ -47,6 +49,9 @@ interface PublicAttendancePortalProps {
   orgInfo: OrgCategoryInfo;
   companyName?: string;
   enforceGeofence?: boolean;
+  mode?: 'public' | 'user';
+  currentUserStudent?: Student;
+  onUpdateStudent?: (student: Student) => void;
 }
 
 type PortalView = 'selection' | 'fingerprint' | 'face';
@@ -60,11 +65,73 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
   orgInfo,
   companyName,
   enforceGeofence = false,
+  mode = 'public',
+  currentUserStudent,
+  onUpdateStudent,
 }) => {
   const { terminology } = orgInfo;
 
   // Active View State: 'selection' (2 buttons view), 'face', or 'fingerprint'
   const [activeView, setActiveView] = useState<PortalView>('selection');
+
+  // User Mode Biometric Passkey State
+  const [isBiometricProcessing, setIsBiometricProcessing] = useState<boolean>(false);
+  const [biometricMessage, setBiometricMessage] = useState<string | null>(null);
+
+  const handleFingerprintClick = async () => {
+    if (isDeviceLocked) {
+      alert('❌ আপনার ডিভাইসটি অনুমোদিত নয়। হাজিরা দেওয়া সম্ভব নয়।');
+      return;
+    }
+
+    if (mode === 'user' && currentUserStudent) {
+      if (enforceGeofence && !gpsVerified) {
+        alert('⚠️ অফিস লোকেশন যাচাই করা যায়নি। দয়া করে লোকেশন অন করুন এবং রিফ্রেশ করুন।');
+        return;
+      }
+
+      setIsBiometricProcessing(true);
+      setBiometricMessage(null);
+
+      const result = await triggerMobileFingerprintPrompt(currentUserStudent.nameBangla, currentUserStudent.id);
+      setIsBiometricProcessing(false);
+
+      if (result.success) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+        const updated = {
+          studentId: currentUserStudent.id,
+          studentName: currentUserStudent.nameBangla,
+          roll: currentUserStudent.roll,
+          classId: currentUserStudent.classId || 'default-class',
+          className: currentUserStudent.className || orgInfo.terminology.groupLabel,
+          date: now.toISOString().split('T')[0],
+          time: timeStr,
+          entryTime: timeStr,
+          status: 'Present' as any,
+          method: 'Mobile Biometric Fingerprint',
+          notes: 'মোবাইল ফিঙ্গারপ্রিন্ট সেন্সর ভেরিফিকেশন সফল',
+          updatedAt: Date.now(),
+        };
+        onAttendanceUpdated(updated);
+        setLastDetectedStudent(currentUserStudent);
+        setDetectionTimestamp(timeStr);
+        setDetectionSuccess(true);
+        playSuccessSound();
+        speakBengali(`${currentUserStudent.nameBangla}, আপনার ফিঙ্গারপ্রিন্ট হাজিরা সফলভাবে গ্রহণ করা হয়েছে।`);
+        setTimeout(() => {
+          setDetectionSuccess(false);
+          onExitPortal();
+        }, 2000);
+      } else {
+        setBiometricMessage(result.error || 'বায়োমেট্রিক ফিঙ্গারপ্রিন্ট যাচাই ব্যর্থ হয়েছে। পুনরায় চেষ্টা করুন।');
+      }
+    } else {
+      setActiveView('fingerprint');
+      setFingerprintStatusText('সেন্সরে আপনার আঙুল স্পর্শ করুন');
+      setFingerprintScanError(null);
+    }
+  };
 
   // Camera & Face Scan State
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -503,7 +570,7 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
                   {companyName || orgInfo.label}
                 </h1>
                 <p className="text-[11px] text-slate-400">
-                  ডিজিটাল উপস্থিতি পোর্টাল
+                  {mode === 'user' ? `ইউজার মোড (দ্রুত হাজিরা) • ${currentUserStudent?.nameBangla || ''}` : 'পাবলিক ডিজিটাল উপস্থিতি পোর্টাল'}
                 </p>
               </div>
             </div>
@@ -565,6 +632,75 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
           {activeView === 'selection' && (
             <div className="w-full space-y-6 animate-in fade-in zoom-in-95 duration-200">
               
+              {/* User Mode Quick Action Card */}
+              {mode === 'user' && currentUserStudent && (
+                <div className="p-4 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 border-2 border-emerald-500/60 rounded-3xl shadow-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      ⚡ ইউজার মোড (দ্রুত হাজিরা)
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400">ID: {currentUserStudent.roll}</span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-800 shrink-0 border border-emerald-500/40">
+                      {currentUserStudent.photoUrl || currentUserStudent.faceImage ? (
+                        <img src={currentUserStudent.photoUrl || currentUserStudent.faceImage} alt={currentUserStudent.nameBangla} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-bold text-emerald-400">{currentUserStudent.nameBangla?.charAt(0)}</div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-white">{currentUserStudent.nameBangla}</h4>
+                      <p className="text-[11px] text-slate-300">{currentUserStudent.designation || currentUserStudent.className || 'কর্মী'}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const timeStr = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+                      const updated = {
+                        studentId: currentUserStudent.id,
+                        studentName: currentUserStudent.nameBangla,
+                        roll: currentUserStudent.roll,
+                        classId: currentUserStudent.classId || 'default-class',
+                        className: currentUserStudent.className || orgInfo.terminology.groupLabel,
+                        date: now.toISOString().split('T')[0],
+                        time: timeStr,
+                        entryTime: timeStr,
+                        status: 'Present' as any,
+                        method: 'User Portal Quick Punch',
+                        notes: 'ইউজার মোড ফাস্ট পাঞ্চ সফল',
+                        updatedAt: Date.now(),
+                      };
+                      onAttendanceUpdated(updated);
+                      setLastDetectedStudent(currentUserStudent);
+                      setDetectionTimestamp(timeStr);
+                      setDetectionSuccess(true);
+                      playSuccessSound();
+                      speakBengali(`${currentUserStudent.nameBangla}, আপনার হাজিরা সফলভাবে গ্রহণ করা হয়েছে।`);
+                      setTimeout(() => {
+                        setDetectionSuccess(false);
+                        onExitPortal();
+                      }, 2000);
+                    }}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs rounded-2xl shadow-lg transition flex items-center justify-center space-x-2 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>এক ক্লিকে উপস্থিতি সম্পন্ন করুন (Quick Check-In)</span>
+                  </button>
+                </div>
+              )}
+              
+              {/* Biometric Message Toast */}
+              {biometricMessage && (
+                <div className="p-3.5 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl text-emerald-300 text-xs font-bold flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span>{biometricMessage}</span>
+                </div>
+              )}
+              
               {/* TWO PRIMARY BUTTONS: ফেস স্ক্যান & ফিঙ্গারপ্রিন্ট */}
               <div className="grid grid-cols-2 gap-4">
                 
@@ -597,24 +733,21 @@ export const PublicAttendancePortal: React.FC<PublicAttendancePortalProps> = ({
                 <button
                   id="portal-btn-fingerprint"
                   type="button"
-                  onClick={() => {
-                    if (isDeviceLocked) {
-                      alert('❌ আপনার ডিভাইসটি অনুমোদিত নয়। হাজিরা দেওয়া সম্ভব নয়।');
-                      return;
-                    }
-                    setActiveView('fingerprint');
-                    setFingerprintStatusText('সেন্সরে আপনার আঙুল স্পর্শ করুন');
-                    setFingerprintScanError(null);
-                  }}
-                  className="group relative p-6 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 hover:from-emerald-950/80 hover:to-slate-900 border-2 border-emerald-500/50 hover:border-emerald-400 text-center transition-all duration-200 shadow-xl hover:shadow-emerald-500/20 cursor-pointer active:scale-95 flex flex-col items-center justify-center space-y-3"
+                  onClick={handleFingerprintClick}
+                  disabled={isBiometricProcessing}
+                  className="group relative p-6 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 hover:from-emerald-950/80 hover:to-slate-900 border-2 border-emerald-500/50 hover:border-emerald-400 text-center transition-all duration-200 shadow-xl hover:shadow-emerald-500/20 cursor-pointer active:scale-95 flex flex-col items-center justify-center space-y-3 disabled:opacity-50"
                   title="ফিঙ্গারপ্রিন্ট"
                 >
                   <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:bg-emerald-500/30 transition-all">
-                    <Fingerprint className="w-9 h-9 stroke-[2.2]" />
+                    {isBiometricProcessing ? (
+                      <RefreshCw className="w-9 h-9 animate-spin text-emerald-400" />
+                    ) : (
+                      <Fingerprint className="w-9 h-9 stroke-[2.2]" />
+                    )}
                   </div>
 
                   <h3 className="text-base sm:text-lg font-black text-white group-hover:text-emerald-300 transition-colors">
-                    ফিঙ্গারপ্রিন্ট
+                    {mode === 'user' ? (currentUserStudent?.passkeyRegistered ? 'ফিঙ্গারপ্রিন্ট হাজিরা' : 'ফিঙ্গারপ্রিন্ট সেটআপ') : 'ফিঙ্গারপ্রিন্ট'}
                   </h3>
                 </button>
 

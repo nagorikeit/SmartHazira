@@ -315,72 +315,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Quick Attendance Methods & Mobile Tools Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        {/* 1. AI Face Recognition */}
-        <button
-          onClick={onOpenFaceScanner}
-          className="p-3 bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-2xl shadow-xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
-        >
-          <div className="p-2 bg-white/20 rounded-xl group-hover:scale-105 transition-transform shrink-0">
-            <Camera className="w-5 h-5 text-white" />
-          </div>
-          <div className="truncate">
-            <p className="font-extrabold text-xs">AI ফেস ক্যামেরা</p>
-            <p className="text-[10px] text-emerald-100 opacity-90">স্বয়ংক্রিয় লাইভ ফেস স্ক্যান</p>
-          </div>
-        </button>
-
-        {/* 2. Public Self-Service Attendance Link & QR (No Login Required) */}
-        {onOpenAttendanceLinkModal && (
-          <button
-            onClick={onOpenAttendanceLinkModal}
-            className="p-3 bg-gradient-to-br from-indigo-600 to-slate-800 hover:from-indigo-500 hover:to-slate-700 text-white rounded-2xl shadow-xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
-          >
-            <div className="p-2 bg-white/20 rounded-xl group-hover:scale-105 transition-transform shrink-0">
-              <QrCode className="w-5 h-5 text-white" />
-            </div>
-            <div className="truncate">
-              <div className="flex items-center space-x-1">
-                <p className="font-extrabold text-xs">পাবলিক কিউআর ও লিংক</p>
-                <span className="px-1 py-0.2 bg-emerald-400 text-slate-950 font-black text-[9px] rounded">নো-লগইন</span>
-              </div>
-              <p className="text-[10px] text-indigo-100 opacity-90">কর্মীদের সেলফ-হাজিরা লিংক</p>
-            </div>
-          </button>
-        )}
-
-        {/* 3. Add New Member with Face Enrollment */}
-        <button
-          onClick={onOpenRegisterModal}
-          className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-2xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
-        >
-          <div className="p-2 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
-            <UserPlus className="w-5 h-5" />
-          </div>
-          <div className="truncate">
-            <p className="font-extrabold text-xs">নতুন {terminology.memberLabel} যোগ</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400">প্রোফাইল ও ফেস নিবন্ধন</p>
-          </div>
-        </button>
-
-        {/* 4. Navigate to Member & Face Directory */}
-        {onNavigateToUsers && (
-          <button
-            onClick={onNavigateToUsers}
-            className="p-3 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-2xl shadow-2xs hover:shadow-md transition text-left flex items-center space-x-3 cursor-pointer group"
-          >
-            <div className="p-2 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-xl group-hover:scale-105 transition-transform shrink-0">
-              <Users className="w-5 h-5" />
-            </div>
-            <div className="truncate">
-              <p className="font-extrabold text-xs">{terminology.memberLabel} ও ফেস প্রোফাইল</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">সকলের তালিকা ও ফেস ডাটা</p>
-            </div>
-          </button>
-        )}
-      </div>
-
       {/* Unified Table Section */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         
@@ -453,53 +387,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
           </div>
 
-          {/* Right: Status Filter Tabs */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-medium shrink-0 overflow-x-auto border border-slate-200">
-            <button
-              onClick={() => setStatusFilter('All')}
-              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'All' ? 'bg-white font-bold text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              সকল ({studentRows.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('Present')}
-              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'Present' ? 'bg-emerald-600 font-bold text-white shadow-2xs' : 'text-slate-600 hover:text-emerald-700'
-              }`}
-            >
-              উপস্থিত ({studentRows.filter(r => r.status === 'Present').length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('Late')}
-              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'Late' ? 'bg-amber-500 font-bold text-white shadow-2xs' : 'text-slate-600 hover:text-amber-700'
-              }`}
-            >
-              বিলম্ব ({studentRows.filter(r => r.status === 'Late').length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('Absent')}
-              className={`px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                statusFilter === 'Absent' ? 'bg-rose-600 font-bold text-white shadow-2xs' : 'text-slate-600 hover:text-rose-700'
-              }`}
-            >
-              অনুপস্থিত ({studentRows.filter(r => r.status === 'Absent').length})
-            </button>
-          </div>
-
-        </div>
-
-        {/* Shift Guide Note */}
-        <div className="px-4 py-2 bg-emerald-50 border-y border-emerald-100 flex items-center justify-between text-[11px] text-emerald-900 gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-            <span><strong>হাজিরা ও শিফট নির্বাচন:</strong> প্রবেশের সময় অনুযায়ী শিফট অটোমেটিক সিলেক্ট হয়। হাজিরা সম্পন্ন হওয়ার পরও নিচের 'ডিউটি শিফট' ড্রপডাউন থেকে সরাসরি শিফট পরিবর্তন করতে পারবেন।</span>
-          </div>
-          <span className="text-emerald-700 font-bold text-[10px] bg-white px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
-            বর্তমান সক্রিয় শিফট: {currentActiveShift?.nameBangla}
-          </span>
         </div>
 
         {/* Member List Table */}

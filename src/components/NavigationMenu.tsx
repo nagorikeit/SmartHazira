@@ -493,20 +493,6 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
                     </button>
                   )}
                 </div>
-
-                {/* Logout Button in Admin Section */}
-                {onSignOut && (
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => handleAction(onSignOut)}
-                      className="w-full p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 rounded-2xl flex items-center justify-center space-x-2.5 font-bold text-xs shadow-xs transition cursor-pointer active:scale-98"
-                    >
-                      <LogOut className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                      <span>লগআউট / প্রস্থান করুন</span>
-                    </button>
-                  </div>
-                )}
               </div>
             </>
           )}

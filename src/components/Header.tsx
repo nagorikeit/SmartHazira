@@ -4,8 +4,7 @@ import { OrgCategoryInfo } from '../utils/organizationConfig';
 import { User } from 'firebase/auth';
 import { 
   Camera, 
-  Menu,
-  LogOut
+  Menu
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -82,17 +81,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Menu className="w-5 h-5 text-emerald-600" />
                 <span className="hidden sm:inline font-bold text-xs">মেনু</span>
-              </button>
-            )}
-
-            {onGoogleSignOut && (
-              <button
-                onClick={onGoogleSignOut}
-                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
-                title="লগআউট / প্রস্থান করুন"
-              >
-                <LogOut className="w-4 h-4 text-rose-600" />
-                <span className="hidden sm:inline font-bold text-xs">লগআউট</span>
               </button>
             )}
           </div>
