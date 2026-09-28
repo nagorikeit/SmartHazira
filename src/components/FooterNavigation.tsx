@@ -92,13 +92,17 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               </span>
             </button>
 
-            {/* Item 3 (CENTER): মোবাইল ফেস হাজিরা অ্যাকশন বাটন */}
+            {/* Item 3 (CENTER): পাবলিক হাজিরা লিংক অ্যাকশন বাটন (নতুন উইন্ডো) */}
             <div className="flex items-center justify-center -mt-5 sm:-mt-6 relative">
               <button
                 id="footer-action-face-attendance"
                 type="button"
-                onClick={onOpenFaceScanner}
-                title="মোবাইল ফেস হাজিরা দিন"
+                onClick={() => {
+                  const currentUrl = window.location.origin + window.location.pathname;
+                  const attendanceLink = `${currentUrl}?mode=attendance&geo=1`;
+                  window.open(attendanceLink, '_blank');
+                }}
+                title="পাবলিক হাজিরা লিংকে প্রবেশ করুন (নতুন উইন্ডো)"
                 className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black shadow-lg shadow-emerald-600/30 border-4 border-white transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
               >
                 <span className="absolute -inset-1 rounded-full bg-emerald-500/20 animate-pulse" />
@@ -211,13 +215,17 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
             </span>
           </button>
 
-          {/* Item 3 (CENTER): লাইভ ফেস স্ক্যানার বাটন */}
+          {/* Item 3 (CENTER): পাবলিক হাজিরা লিংক বাটন (নতুন উইন্ডো) */}
           <div className="flex items-center justify-center -mt-5 sm:-mt-6 relative">
             <button
               id="footer-action-face-scanner"
               type="button"
-              onClick={onOpenFaceScanner}
-              title="মোবাইল ক্যামেরা দিয়ে লাইভ ফেস হাজিরা গ্রহণ"
+              onClick={() => {
+                const currentUrl = window.location.origin + window.location.pathname;
+                const attendanceLink = `${currentUrl}?mode=attendance&geo=1`;
+                window.open(attendanceLink, '_blank');
+              }}
+              title="পাবলিক হাজিরা লিংকে প্রবেশ করুন (নতুন উইন্ডো)"
               className="relative group p-3.5 sm:p-4 rounded-full bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black shadow-lg shadow-emerald-600/30 border-4 border-white transition-all duration-200 cursor-pointer active:scale-95 flex flex-col items-center justify-center"
             >
               {/* Pulsing ring */}
@@ -228,7 +236,7 @@ export const FooterNavigation: React.FC<FooterNavigationProps> = ({
               </div>
             </button>
             <span className="absolute -bottom-4 text-[10px] font-black text-emerald-700 tracking-tight whitespace-nowrap">
-              ফেস স্ক্যান
+              হাজিরা দিন
             </span>
           </div>
 

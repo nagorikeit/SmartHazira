@@ -76,22 +76,6 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Clean Action Icons on the Right */}
           <div className="flex items-center space-x-2 shrink-0">
-            {/* Public Attendance Portal Button - Opens in New Window */}
-            <button
-              id="btn-header-public-attendance-link"
-              onClick={() => {
-                const currentUrl = window.location.origin + window.location.pathname;
-                const attendanceLink = `${currentUrl}?mode=attendance&geo=1`;
-                window.open(attendanceLink, '_blank');
-              }}
-              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 active:scale-95 text-indigo-700 border border-indigo-200 hover:border-indigo-400 transition cursor-pointer flex items-center space-x-1.5 shadow-2xs"
-              title="পাবলিক হাজিরা লিংক (নতুন উইন্ডোতে খুলবে)"
-            >
-              <QrCode className="w-4 h-4 text-indigo-600" />
-              <span className="hidden sm:inline font-bold text-xs">পাবলিক হাজিরা</span>
-              <ExternalLink className="w-3 h-3 text-indigo-400 hidden xs:inline" />
-            </button>
-
             {onOpenNavigationMenu && (
               <button
                 onClick={onOpenNavigationMenu}
